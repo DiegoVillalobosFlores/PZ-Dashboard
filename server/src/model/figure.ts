@@ -191,15 +191,12 @@ async function loadBodySkeleton(female: boolean): Promise<Map<string, number[]> 
   if (bodySkeleton) return bodySkeleton;
   const bodyModel = female ? "skinned/FemaleBody" : "skinned/MaleBody";
   const absPath = await resolveModelPath(bodyModel);
-  console.error(`[figure] loadBodySkeleton bodyModel=${bodyModel} absPath=${absPath}`);
   if (!absPath) return null;
   try {
     const text = await readFile(absPath, "latin1");
     bodySkeleton = extractSkeleton(text);
-    console.error(`[figure] skeleton loaded: ${bodySkeleton.size} bones`);
     return bodySkeleton;
-  } catch (err: any) {
-    console.error(`[figure] skeleton load error:`, err.message || err);
+  } catch {
     return null;
   }
 }
@@ -252,25 +249,17 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
     if (!hasModel && !texture) continue;
 
     let offset: number[] | undefined;
-    let debugInfo = '';
-    const isStatic = hasModel && /[/\\]static[/\\]/i.test(modelPath);
+    const isStatic = hasModel && /(?:^|[\/\\])static(?:[\/\\]|$)/i.test(modelPath);
     if (isStatic && skeleton) {
       const boneName =
         (worn.location && ATTACHMENT_BONE[worn.location]) ??
         def.attachments.map((a) => ATTACHMENT_BONE[a]).find(Boolean);
-      if (boneName) {
-        offset = skeleton.get(boneName);
-        debugInfo = offset ? ` [bone=${boneName}]` : ` [bone ${boneName} MISSING from skeleton]`;
-      } else {
-        debugInfo = ` [loc=${worn.location} att=${def.attachments}]`;
-      }
-    } else if (isStatic && !skeleton) {
-      debugInfo = ` [NO SKELETON]`;
+      if (boneName) offset = skeleton.get(boneName);
     }
 
     parts.push({
       id: `worn:${index}:${itemName}`,
-      label: (worn.name || itemName) + debugInfo,
+      label: worn.name || itemName,
       model: modelUrl(resolvedModel),
       texture: texture && (await resolveTexturePath(texture)) ? textureUrl(texture) : null,
       tint: rgb(worn.tint),
@@ -310,5 +299,5 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
   }
 
   parts.sort((a, b) => a.layer - b.layer);
-  return { female, parts, missing, _debug: skeleton ? { boneCount: skeleton.size, hasHead: skeleton.has('Bip01_Head'), hasSpine1: skeleton.has('Bip01_Spine1'), hasBackPack: skeleton.has('Bip01_BackPack'), hasForearm: skeleton.has('Bip01_L_Forearm') } : null };
+  return { female, parts, missing };
 }
