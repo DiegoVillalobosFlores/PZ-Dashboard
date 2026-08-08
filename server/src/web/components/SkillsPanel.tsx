@@ -168,8 +168,10 @@ export function SkillsPanel({
     <GlassPanel
       cornerBrackets={{ length: 20, thickness: 2, inset: 6, opacity: 0.85 }}
       style={{
-        width: compact ? 'min(340px, 100%)' : 'min(1370px, 100%)',
+        width: compact ? 340 : 1370,
+        maxWidth: '100%',
         maxHeight: '100%',
+        boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
         gap: 14,

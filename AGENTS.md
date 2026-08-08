@@ -59,7 +59,7 @@ rules below target those.
   with `{type:"actionAck",commandId}` — the actual result comes back later
   as a normal `commandResult` state update once the mod executes it).
   **Before running the server or editing the mod against a live game, read
-  the `pz-mod-server` skill** (`.claude/skills/pz-mod-server/SKILL.md`) — it
+  the `pz-mod-server` skill** (`.opencode/skill/pz-mod-server/SKILL.md`) — it
   covers finding the actual live Zomboid data directory (native vs Proton,
   they differ), the source-vs-deployed mod split and Lua reload workflow,
   reading `console.txt`, and Build 42 API gotchas already paid for.
@@ -130,7 +130,7 @@ rules below target those.
 - `penpot/` — UI design work for the companion app. Design happens in a
   self-hosted Penpot instance, not Figma (quota exhausted) and not
   hand-coded HTML. **Before touching UI design, read the `penpot-local`
-  skill** (`.claude/skills/penpot-local/SKILL.md`) — it covers starting the
+  skill** (`.opencode/skill/penpot-local/SKILL.md`) — it covers starting the
   local Penpot stack, connecting its MCP server, Plugin API gotchas already
   paid for, and the mandatory on-canvas versioning convention (every
   revision is a new row, never an edit in place).

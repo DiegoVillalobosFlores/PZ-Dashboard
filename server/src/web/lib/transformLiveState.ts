@@ -1,4 +1,4 @@
-import type { Vitals } from '../mock/gameState';
+import type { Vitals, Conditions } from '../mock/gameState';
 import type { StatusSnapshot } from './liveTypes';
 
 const pct = (n: number) => Math.round(Math.max(0, Math.min(1, n)) * 100);
@@ -13,6 +13,20 @@ export function statusToVitals(status: StatusSnapshot): Vitals {
     thirst: pct(1 - status.thirst),
     fatigue: pct(1 - status.fatigue),
     stamina: pct(status.endurance),
+  };
+}
+
+// The mod reports raw need-stats and conditions. Conditions are status effects
+// (stress, panic, pain, infected, bleeding) — higher is always worse, so no
+// inversion needed. Boredom is included but typically shown as a mild status.
+export function statusToConditions(status: StatusSnapshot): Conditions {
+  return {
+    stress: pct(status.stress),
+    panic: pct(status.panic),
+    boredom: pct(status.boredom),
+    pain: pct(status.pain),
+    infected: status.infected,
+    bleeding: status.bleeding,
   };
 }
 

@@ -1,13 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 
-// One bone's influence over the mesh. None of it is used to animate - the
-// figure is drawn in bind pose - but the bone names are the only thing that
-// identifies the body model's hidden dress panels, so the renderer needs them.
 export type SkinBinding = {
   bone: string;
   indices: number[];
   weights: number[];
+  offsetMatrix: number[] | null;
 };
 
 export type MeshGeometry = {
@@ -207,7 +205,8 @@ function parseMesh(cur: Cursor, name: string): MeshGeometry {
       const weights: number[] = [];
       for (let v = 0; v < weightCount; v += 1) indices.push(num(cur));
       for (let v = 0; v < weightCount; v += 1) weights.push(num(cur));
-      if (bone) mesh.skin.push({ bone, indices, weights });
+      const offsetMatrix = cur.tokens[cur.i]?.kind === "num" ? readMatrix(cur) : null;
+      if (bone) mesh.skin.push({ bone, indices, weights, offsetMatrix });
       while (cur.i < cur.tokens.length) {
         const end = cur.tokens[cur.i]!;
         cur.i += 1;
@@ -274,7 +273,7 @@ function parseChildren(cur: Cursor, meshes: MeshGeometry[], parentTransform: num
         }
       }
 
-      const childTransform = multiplyMatrices(parentTransform, frameTransform);
+      const childTransform = multiplyMatrices(frameTransform, parentTransform);
       parseChildren(cur, meshes, childTransform);
       continue;
     }
@@ -309,56 +308,37 @@ export function parseXModel(text: string): MeshGeometry[] {
   return meshes;
 }
 
-function extractBones(cur: Cursor, bones: Map<string, number[]>, parentTransform: number[]) {
-  while (cur.i < cur.tokens.length) {
-    const token = cur.tokens[cur.i]!;
-    if (token.kind === "sym") {
-      if (token.value === "}") { cur.i += 1; return; }
-      cur.i += 1;
-      continue;
-    }
-    if (token.kind !== "id") { cur.i += 1; continue; }
+function invertAffine(matrix: number[]): number[] | null {
+  const a = matrix[0]!, b = matrix[1]!, c = matrix[2]!;
+  const d = matrix[4]!, e = matrix[5]!, f = matrix[6]!;
+  const g = matrix[8]!, h = matrix[9]!, i = matrix[10]!;
+  const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+  if (!det || !Number.isFinite(det)) return null;
 
-    if (token.value === "Frame") {
-      cur.i += 1;
-      const nameToken = cur.tokens[cur.i];
-      const name = nameToken?.kind === "id" ? nameToken.value : "";
-      if (nameToken?.kind === "id") cur.i += 1;
-      if (cur.tokens[cur.i]?.kind === "sym") cur.i += 1;
-
-      let frameTransform = identityMatrix();
-      const saved = cur.i;
-      const maybeId = cur.tokens[cur.i];
-      if (maybeId?.kind === "id" && maybeId.value === "FrameTransformMatrix") {
-        cur.i += 1;
-        if (cur.tokens[cur.i]?.kind === "sym" && (cur.tokens[cur.i] as Token & { value: string }).value === "{") {
-          cur.i += 1;
-          const matrix = readMatrix(cur);
-          if (matrix) frameTransform = matrix;
-          while (cur.i < cur.tokens.length) {
-            const end = cur.tokens[cur.i]!;
-            cur.i += 1;
-            if (end.kind === "sym" && end.value === "}") break;
-          }
-        } else {
-          cur.i = saved;
-        }
-      }
-
-      const childTransform = multiplyMatrices(parentTransform, frameTransform);
-      if (name) bones.set(name, childTransform);
-      extractBones(cur, bones, childTransform);
-      continue;
-    }
-
-    skipBlock(cur);
-  }
+  const r = [
+    (e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det,
+    (f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det,
+    (d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det,
+  ];
+  const tx = matrix[12]!, ty = matrix[13]!, tz = matrix[14]!;
+  return [
+    r[0]!, r[1]!, r[2]!, 0,
+    r[3]!, r[4]!, r[5]!, 0,
+    r[6]!, r[7]!, r[8]!, 0,
+    -(tx * r[0]! + ty * r[3]! + tz * r[6]!),
+    -(tx * r[1]! + ty * r[4]! + tz * r[7]!),
+    -(tx * r[2]! + ty * r[5]! + tz * r[8]!),
+    1,
+  ];
 }
 
-export function extractSkeleton(text: string): Map<string, number[]> {
-  const cur: Cursor = { tokens: tokenize(text), i: 0 };
+export function bindPose(mesh: MeshGeometry): Map<string, number[]> {
   const bones = new Map<string, number[]>();
-  extractBones(cur, bones, identityMatrix());
+  for (const binding of mesh.skin) {
+    if (!binding.offsetMatrix) continue;
+    const inverse = invertAffine(binding.offsetMatrix);
+    if (inverse) bones.set(binding.bone, inverse);
+  }
   return bones;
 }
 

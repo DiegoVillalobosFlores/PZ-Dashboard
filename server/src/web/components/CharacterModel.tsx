@@ -35,10 +35,6 @@ function fetchMesh(url: string): Promise<MeshData | null> {
   return request;
 }
 
-// DirectX .x is left-handed with a top-left texture origin; three.js is
-// right-handed with a bottom-left one. Negating Z and flipping V at buffer
-// build time is what stops the character coming out mirrored and with its
-// textures upside down.
 function transformMesh(mesh: MeshData, matrix: number[]): MeshData {
   const positions = [...mesh.positions];
   for (let i = 0; i < positions.length; i += 3) {
@@ -49,7 +45,22 @@ function transformMesh(mesh: MeshData, matrix: number[]): MeshData {
     positions[i + 1] = x * matrix[1]! + y * matrix[5]! + z * matrix[9]! + matrix[13]!;
     positions[i + 2] = x * matrix[2]! + y * matrix[6]! + z * matrix[10]! + matrix[14]!;
   }
-  return { ...mesh, positions, normals: [] };
+
+  const normals = [...mesh.normals];
+  for (let i = 0; i < normals.length; i += 3) {
+    const x = normals[i]!;
+    const y = normals[i + 1]!;
+    const z = normals[i + 2]!;
+    const nx = x * matrix[0]! + y * matrix[4]! + z * matrix[8]!;
+    const ny = x * matrix[1]! + y * matrix[5]! + z * matrix[9]!;
+    const nz = x * matrix[2]! + y * matrix[6]! + z * matrix[10]!;
+    const length = Math.hypot(nx, ny, nz) || 1;
+    normals[i] = nx / length;
+    normals[i + 1] = ny / length;
+    normals[i + 2] = nz / length;
+  }
+
+  return { ...mesh, positions, normals };
 }
 
 function toGeometry(mesh: MeshData): THREE.BufferGeometry {
@@ -79,18 +90,6 @@ function toGeometry(mesh: MeshData): THREE.BufferGeometry {
 const LAYER_BODY = 0;
 const LAYER_CLOTHING = 2;
 
-// The body and its garments are separate closed shells that interpenetrate:
-// measured against MaleBody.x, bare legs sit up to ~0.014 model units proud of
-// Bob_Trousers.x, and the body's inner thighs are simply wider than the gap
-// between the trouser legs. No amount of nudging fixes that, which is why the
-// game doesn't try - it masks the covered body regions out (each
-// ClothingItem's <m_Masks>). This does the same thing, deciding what's covered
-// geometrically instead of from a mask table that only exists in the engine.
-//
-// A body vertex counts as covered if pulling it this far back along its own
-// normal puts it inside a garment. Has to exceed the worst poke-through so
-// proud skin is caught, and stay well under the clearance around a hand
-// sticking out of a sleeve so bare skin survives.
 const COVER_MARGIN = 0.02;
 
 function isInsideGarment(
@@ -99,10 +98,6 @@ function isInsideGarment(
   raycaster: THREE.Raycaster,
 ): boolean {
   for (const garment of garments) {
-    // Parity test: an odd number of crossings along any ray means the point
-    // is enclosed. The direction is deliberately off-axis, since a ray running
-    // along the grain of these mostly axis-aligned meshes grazes faces and
-    // miscounts.
     raycaster.set(point, PARITY_RAY);
     if (raycaster.intersectObject(garment, false).length % 2 === 1) return true;
   }
@@ -111,11 +106,6 @@ function isInsideGarment(
 
 const PARITY_RAY = new THREE.Vector3(0.51, 0.63, 0.58).normalize();
 
-// MaleBody.x and FemaleBody.x both carry a pair of flat panels hanging from
-// the waist to the shin, front and back, weighted to Bip01_Dress* and used to
-// drape a skirt. The game only draws them for a character actually wearing
-// one; drawn unconditionally they read as a solid slab between the legs, in
-// front of any trousers.
 function dressPanelVertices(mesh: MeshData): Set<number> {
   const vertices = new Set<number>();
   for (const binding of mesh.skin ?? []) {
@@ -125,10 +115,6 @@ function dressPanelVertices(mesh: MeshData): Set<number> {
   return vertices;
 }
 
-// Drops body triangles the clothes have completely hidden, along with the
-// dress panels. Only fully covered triangles go, so a band of skin survives
-// under every hem and cuff - which is what keeps the open edge of the body
-// shell out of sight.
 function clothedBodyIndices(mesh: MeshData, geometry: THREE.BufferGeometry, garments: THREE.Mesh[]): number[] {
   const dress = dressPanelVertices(mesh);
   if (!garments.length && !dress.size) return mesh.indices;
@@ -154,8 +140,6 @@ function clothedBodyIndices(mesh: MeshData, geometry: THREE.BufferGeometry, garm
     const a = mesh.indices[i]!;
     const b = mesh.indices[i + 1]!;
     const c = mesh.indices[i + 2]!;
-    // A triangle only has to touch one dress-panel vertex to be part of a
-    // panel, but has to be covered at all three corners to count as hidden.
     if (dress.has(a) || dress.has(b) || dress.has(c)) continue;
     if (covered[a] && covered[b] && covered[c]) continue;
     kept.push(a, b, c);
@@ -167,9 +151,6 @@ function useFigure(): Figure | null {
   const [figure, setFigure] = useState<Figure | null>(null);
   const signatureRef = useRef<string>('');
 
-  // The snapshot itself is never rendered - it's the change signal that tells
-  // us to re-resolve the figure server-side, so a coat put on in-game shows up
-  // here without polling.
   const appearance = useGameSubscription('appearance', (msg) =>
     msg.category === 'appearance' ? msg.updatedAt : undefined,
   );
@@ -180,10 +161,6 @@ function useFigure(): Figure | null {
       .then((res) => (res.ok ? (res.json() as Promise<Figure>) : null))
       .then((next) => {
         if (cancelled || !next) return;
-        // The mod re-reports appearance every couple of seconds whether or not
-        // anything changed, and rebuilding means re-running the coverage
-        // raycasts over every body vertex. Only a genuinely different set of
-        // parts is worth that.
         const signature = JSON.stringify(next.parts);
         if (signature === signatureRef.current) return;
         signatureRef.current = signature;
@@ -209,14 +186,10 @@ function disposeGroup(group: THREE.Group) {
 }
 
 const CAMERA_FOV = 30;
-// Distance at which a ~1-unit-tall figure fills most of a square viewport.
 const ZOOM_DEFAULT = 2.2;
 const ZOOM_NEAR = 0.6;
 const ZOOM_FAR = 3.2;
 
-// Half the figure's height about its centre, which is what bounds panning:
-// there's only somewhere to pan to once the zoom has pushed part of the body
-// outside the viewport.
 const MODEL_HALF_HEIGHT = 0.49;
 
 function halfViewHeight(distance: number): number {
@@ -227,11 +200,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-// A live 3D render of the character built from the game's own model and
-// texture files: the mod says which ClothingItem and which texture choice,
-// the server resolves those to meshes, and this stacks them in the same order
-// the game layers them. Everything is bind pose - no skinning - which is why
-// the figure stands in a T-pose rather than being animated.
 export function CharacterModel({
   size,
   fallback,
@@ -243,9 +211,6 @@ export function CharacterModel({
   const mountRef = useRef<HTMLDivElement | null>(null);
   const groupRef = useRef<THREE.Group | null>(null);
   const yawRef = useRef(0);
-  // Camera state lives in refs, not state: it changes every frame during a
-  // gesture, and it has to survive the render effect re-running when `size`
-  // changes so a layout switch doesn't throw away the user's zoom.
   const zoomRef = useRef(ZOOM_DEFAULT);
   const panRef = useRef(0);
   const interactingRef = useRef(false);
@@ -277,9 +242,6 @@ export function CharacterModel({
 
     const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.1, 20);
 
-    // Panning is only allowed as far as the zoom has pushed the body out of
-    // frame, so at the default zoom - where the whole figure fits - a vertical
-    // drag does nothing at all rather than sliding the character into space.
     const applyCamera = () => {
       const distance = clamp(zoomRef.current, ZOOM_NEAR, ZOOM_FAR);
       zoomRef.current = distance;
@@ -294,16 +256,12 @@ export function CharacterModel({
     const tick = () => {
       frame = requestAnimationFrame(tick);
       if (groupRef.current) {
-        if (!interactingRef.current) yawRef.current += 0.004;
         groupRef.current.rotation.y = yawRef.current;
       }
       renderer.render(scene, camera);
     };
     tick();
 
-    // One map for every active pointer, rather than a single drag: it's what
-    // lets the same handlers serve a one-finger spin and a two-finger pinch,
-    // which matters because the wide layout is a handheld with a touchscreen.
     const pointers = new Map<number, { x: number; y: number }>();
     let gesture: { yaw: number; pan: number; x: number; y: number; spread: number; zoom: number } | null = null;
 
@@ -321,8 +279,6 @@ export function CharacterModel({
       }
       return { x: x / pointers.size, y: y / pointers.size };
     };
-    // Re-baselined whenever a finger lands or lifts, so the model doesn't jump
-    // when a pinch becomes a drag mid-gesture.
     const rebase = () => {
       if (!pointers.size) {
         gesture = null;
@@ -356,8 +312,6 @@ export function CharacterModel({
       } else {
         const middle = centroid();
         yawRef.current = gesture.yaw + (middle.x - gesture.x) * 0.012;
-        // Dragging down should walk the camera up the body, so the figure
-        // follows the finger.
         panRef.current = gesture.pan + ((middle.y - gesture.y) / size) * halfViewHeight(zoomRef.current) * 2;
       }
       applyCamera();
@@ -373,7 +327,6 @@ export function CharacterModel({
     };
 
     const onWheel = (event: WheelEvent) => {
-      // Without this the gesture scrolls the page behind the panel instead.
       event.preventDefault();
       zoomRef.current *= Math.exp(event.deltaY * 0.0015);
       applyCamera();
@@ -411,23 +364,19 @@ export function CharacterModel({
     const loader = new THREE.TextureLoader();
 
     const group = new THREE.Group();
-    // The models are ~1 unit tall standing on y=0, so drop the group by half
-    // its height to spin around the character's middle rather than its feet.
     group.position.y = -0.48;
 
-    // Every mesh is fetched up front rather than built as it arrives, because
-    // which parts of the body to cull can only be worked out once all the
-    // garments covering it are known.
     const build = async () => {
-      const meshes = await Promise.all(figure.parts.map((part) => fetchMesh(part.model)));
+      const fetched = await Promise.all(figure.parts.map((part) => fetchMesh(part.model)));
+      const meshes = fetched.map((mesh, index) => {
+        const offset = figure.parts[index]?.offset;
+        return mesh && offset ? transformMesh(mesh, offset) : mesh;
+      });
 
       const garments: THREE.Mesh[] = [];
       figure.parts.forEach((part, index) => {
         const mesh = meshes[index];
         if (part.layer !== LAYER_CLOTHING || !mesh) return;
-        // DoubleSide is load-bearing, not cosmetic: the raycaster skips
-        // back-facing hits on a FrontSide material, which halves the crossing
-        // count and makes every parity test come back "outside".
         const probe = new THREE.Mesh(toGeometry(mesh), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
         probe.updateMatrixWorld();
         garments.push(probe);
@@ -438,20 +387,10 @@ export function CharacterModel({
         if (!mesh) return null;
 
         const material = new THREE.MeshLambertMaterial({
-          // Every garment is a separate closed shell rather than a cutaway of
-          // the body, and PZ's winding doesn't survive the handedness flip
-          // cleanly, so both faces are drawn.
           side: THREE.DoubleSide,
-          // alphaTest without `transparent` gives cutout edges (hair strands,
-          // strap gaps) while still writing depth, so the shells behind a
-          // cutout stay correctly occluded - blended transparency here would
-          // sort them wrong.
           alphaTest: 0.35,
         });
         if (part.tint) material.color.setRGB(...part.tint);
-        // Layered shells sit right on top of each other; nudging each one
-        // depth-wise by its layer is what keeps a shirt from z-fighting the
-        // torso underneath it.
         material.polygonOffset = true;
         material.polygonOffsetFactor = -part.layer;
         material.polygonOffsetUnits = -part.layer;
@@ -465,8 +404,7 @@ export function CharacterModel({
           }
         }
 
-        const effectiveMesh = part.offset ? transformMesh(mesh, part.offset) : mesh;
-        const geometry = toGeometry(effectiveMesh);
+        const geometry = toGeometry(mesh);
         if (part.layer === LAYER_BODY) {
           geometry.setIndex(clothedBodyIndices(mesh, geometry, garments));
         }
@@ -512,9 +450,6 @@ export function CharacterModel({
 
   return (
     <div style={{ position: 'relative', width: size, height: size, display: 'grid', placeItems: 'center' }}>
-      {/* Crossfaded rather than swapped: the panel keeps its shape while the
-          meshes stream in, and an unreachable game install just leaves the
-          paperdoll silhouette standing. */}
       <div
         style={{
           position: 'absolute',

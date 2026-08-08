@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useMediaQuery } from '@mantine/hooks';
 import { AnnotationsDrawer } from './AnnotationsDrawer';
@@ -16,29 +16,52 @@ import { mockMapPins } from '../mock/gameState';
 //
 // Deliberately holds no game state: each child subscribes to the shared socket
 // itself (see lib/gameSocket.ts), so nothing gets threaded through here.
+const HOTBAR_CLEARANCE = 16;
+const TOP_INSET = { wide: 88, compact: 104 };
+
 export function HudShell() {
   const isWide = useMediaQuery('(min-width: 900px)');
   const currentId = useCurrentDestinationId();
   const [annotationsOpen, setAnnotationsOpen] = useState(false);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const hotbarRef = useRef<HTMLDivElement | null>(null);
+  const hotbarBottom = isWide ? 40 : 24;
+
+  useEffect(() => {
+    const shell = shellRef.current;
+    const hotbar = hotbarRef.current;
+    if (!shell || !hotbar) return;
+
+    const observer = new ResizeObserver(() => {
+      const { height } = hotbar.getBoundingClientRect();
+      const inset = height ? height + hotbarBottom + HOTBAR_CLEARANCE : 0;
+      shell.style.setProperty('--hud-hotbar-inset', `${Math.round(inset)}px`);
+    });
+    observer.observe(hotbar);
+    return () => observer.disconnect();
+  }, [hotbarBottom]);
 
   return (
     <div
+      ref={shellRef}
       style={{
         position: 'relative',
         width: '100%',
         height: '100dvh',
         overflow: 'hidden',
         background: 'var(--color-bg-app)',
-      }}
+        '--hud-hotbar-inset': '0px',
+        '--hud-top-inset': `${isWide ? TOP_INSET.wide : TOP_INSET.compact}px`,
+      } as CSSProperties}
     >
       <MapCanvas pins={mockMapPins} />
 
       {isWide ? (
         <>
-          <div style={{ position: 'absolute', top: 24, left: 116 }}>
+          <div style={{ position: 'absolute', top: 24, left: 116, zIndex: 2 }}>
             <ConditionCluster compact={false} />
           </div>
-          <div style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)' }}>
+          <div style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 2 }}>
             <QuickNav currentId={currentId} />
           </div>
         </>
@@ -49,6 +72,7 @@ export function HudShell() {
             top: 12,
             left: 12,
             right: 12,
+            zIndex: 2,
             display: 'flex',
             flexWrap: 'wrap',
             justifyContent: 'space-between',
@@ -67,7 +91,18 @@ export function HudShell() {
 
       <Outlet />
 
-      <div style={{ position: 'absolute', bottom: isWide ? 40 : 24, left: '50%', transform: 'translateX(-50%)' }}>
+      <div
+        ref={hotbarRef}
+        style={{
+          position: 'absolute',
+          bottom: hotbarBottom,
+          left: 0,
+          right: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+        }}
+      >
         <FloatingHotbar compact={!isWide} />
       </div>
 

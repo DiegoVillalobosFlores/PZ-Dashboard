@@ -52,6 +52,10 @@ import {
   Tent,
   CircleDot,
   MapPinned,
+  Brain,
+  AlertTriangle,
+  Activity,
+  Skull,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -109,6 +113,10 @@ const ICONS: Record<string, LucideIcon> = {
   tent: Tent,
   'circle-dot': CircleDot,
   'map-pinned': MapPinned,
+  brain: Brain,
+  'alert-triangle': AlertTriangle,
+  activity: Activity,
+  skull: Skull,
 };
 
 export function Icon({

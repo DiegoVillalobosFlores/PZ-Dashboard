@@ -1,6 +1,7 @@
 import { useMediaQuery } from '@mantine/hooks';
 import { GlassPanel } from '../components/GlassPanel';
 import { ItemIcon } from '../components/ItemIcon';
+import { ScreenModal } from '../components/ScreenModal';
 import { sendAction, useGameConnection, useGameSubscription } from '../lib/gameSocket';
 import { groupByItemCategory } from '../lib/itemCategories';
 import type { InventoryItemSnapshot } from '../lib/liveTypes';
@@ -100,61 +101,50 @@ export function InventoryScreen() {
   const categories = groupByItemCategory(inventory?.items ?? []);
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        pointerEvents: 'none',
-      }}
-    >
-      <div style={{ pointerEvents: 'auto', width: isWide ? 480 : 340 }}>
-        <GlassPanel
-          style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}
+    <ScreenModal contentStyle={{ width: isWide ? 480 : 340 }}>
+      <GlassPanel
+        style={{ display: 'flex', flexDirection: 'column', width: '100%', maxHeight: '100%', minHeight: 0 }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 16px 12px',
+          }}
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '16px 16px 12px',
-            }}
-          >
-            <span style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-text-primary)' }} className="pz-label">
-              Inventory
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
-              {inventory ? `${inventory.weight.toFixed(1)} / ${inventory.capacity} kg` : connected ? 'loading…' : 'offline'}
-            </span>
-          </div>
-          <div style={{ overflowY: 'auto' }}>
-            {!inventory && (
-              <div style={{ padding: '24px 16px', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
-                {connected ? 'Waiting for inventory data…' : 'Not connected to the dashboard server.'}
-              </div>
-            )}
-            {inventory && categories.length === 0 && (
-              <div style={{ padding: '24px 16px', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
-                Nothing carried.
-              </div>
-            )}
-            {categories.map((category) => (
-              <div key={category.key}>
-                <CategoryHeading label={category.label} count={category.items.length} />
-                {category.items.map((item, index) => (
-                  <InventoryRow
-                    key={`${item.type}-${index}`}
-                    item={item}
-                    onDrop={() => sendAction('dropItem', { itemType: item.type })}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        </GlassPanel>
-      </div>
-    </div>
+          <span style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-text-primary)' }} className="pz-label">
+            Inventory
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
+            {inventory ? `${inventory.weight.toFixed(1)} / ${inventory.capacity} kg` : connected ? 'loading…' : 'offline'}
+          </span>
+        </div>
+        <div style={{ overflowY: 'auto' }}>
+          {!inventory && (
+            <div style={{ padding: '24px 16px', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
+              {connected ? 'Waiting for inventory data…' : 'Not connected to the dashboard server.'}
+            </div>
+          )}
+          {inventory && categories.length === 0 && (
+            <div style={{ padding: '24px 16px', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
+              Nothing carried.
+            </div>
+          )}
+          {categories.map((category) => (
+            <div key={category.key}>
+              <CategoryHeading label={category.label} count={category.items.length} />
+              {category.items.map((item, index) => (
+                <InventoryRow
+                  key={`${item.type}-${index}`}
+                  item={item}
+                  onDrop={() => sendAction('dropItem', { itemType: item.type })}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </GlassPanel>
+    </ScreenModal>
   );
 }

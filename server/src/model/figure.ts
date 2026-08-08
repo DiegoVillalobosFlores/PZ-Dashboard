@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolveMediaPath, resolveModelPath, resolveTexturePath } from "./assets";
-import { extractSkeleton } from "./xModel";
+import { bindPose, loadMesh } from "./xModel";
 
 export type FigurePart = {
   id: string;
@@ -56,6 +56,7 @@ type ClothingDef = {
   textureChoices: string[];
   baseTextures: string[];
   attachments: string[];
+  attachBone: string;
 };
 
 async function clothingDef(name: string): Promise<ClothingDef | null> {
@@ -76,6 +77,7 @@ async function clothingDef(name: string): Promise<ClothingDef | null> {
         textureChoices: tagValues(xml, "textureChoices").filter(Boolean),
         baseTextures: tagValues(xml, "m_BaseTextures").filter(Boolean),
         attachments,
+        attachBone: tagValue(xml, "m_AttachBone"),
       };
     } catch {
       def = null;
@@ -170,35 +172,35 @@ const ATTACHMENT_BONE: Record<string, string> = {
   "base:mask": "Bip01_Head",
   "base:fullhat": "Bip01_Head",
   "base:ears": "Bip01_Head",
-  "base:belt": "Bip01_Spine1",
-  "base:beltextra": "Bip01_Spine1",
-  "base:holster": "Bip01_Spine1",
-  "base:holsterleft": "Bip01_Spine1",
-  "base:holsterright": "Bip01_Spine1",
+  "base:belt": "Bip01_Pelvis",
+  "base:beltextra": "Bip01_Pelvis",
+  "base:holster": "Bip01_Spine",
+  "base:holsterleft": "Bip01_Spine",
+  "base:holsterright": "Bip01_Spine",
   "base:shoulderholster": "Bip01_Spine1",
   "base:back": "Bip01_BackPack",
   "base:satchel": "Bip01_BackPack",
-  "base:fannypackfront": "Bip01_Spine1",
+  "base:fannypackfront": "Bip01_Pelvis",
   "base:fannypackback": "Bip01_BackPack",
   "base:leftwrist": "Bip01_L_Forearm",
   "base:rightwrist": "Bip01_R_Forearm",
   "base:ankles": "Bip01_L_Foot",
 };
 
-let bodySkeleton: Map<string, number[]> | null = null;
+const bodySkeletons = new Map<string, Map<string, number[]>>();
 
 async function loadBodySkeleton(female: boolean): Promise<Map<string, number[]> | null> {
-  if (bodySkeleton) return bodySkeleton;
+  const key = female ? 'f' : 'm';
+  const cached = bodySkeletons.get(key);
+  if (cached) return cached;
   const bodyModel = female ? "skinned/FemaleBody" : "skinned/MaleBody";
   const absPath = await resolveModelPath(bodyModel);
   if (!absPath) return null;
-  try {
-    const text = await readFile(absPath, "latin1");
-    bodySkeleton = extractSkeleton(text);
-    return bodySkeleton;
-  } catch {
-    return null;
-  }
+  const mesh = await loadMesh(absPath);
+  if (!mesh) return null;
+  const skeleton = bindPose(mesh);
+  bodySkeletons.set(key, skeleton);
+  return skeleton;
 }
 
 export async function buildFigure(appearance: Appearance): Promise<Figure> {
@@ -252,8 +254,10 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
     const isStatic = hasModel && /(?:^|[\/\\])static(?:[\/\\]|$)/i.test(modelPath);
     if (isStatic && skeleton) {
       const boneName =
-        (worn.location && ATTACHMENT_BONE[worn.location]) ??
-        def.attachments.map((a) => ATTACHMENT_BONE[a]).find(Boolean);
+        def.attachBone ||
+        (worn.location && ATTACHMENT_BONE[worn.location]) ||
+        def.attachments.map((a) => ATTACHMENT_BONE[a]).find(Boolean) ||
+        undefined;
       if (boneName) offset = skeleton.get(boneName);
     }
 

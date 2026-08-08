@@ -35,6 +35,7 @@ export interface EquipSlotState {
   icon: string; // lucide fallback, used when there's no sprite or it 404s
   spriteIcon?: string; // real in-game sprite name from the mod
   condition?: ItemCondition;
+  conditionRatio?: number;
   ammo?: string; // "5/6", firearms only
   filled: boolean;
   active: boolean;
@@ -49,11 +50,16 @@ export function conditionColor(condition?: ItemCondition): string {
 // PZ reports condition on a per-item scale (a knife maxes at 10, a shirt at
 // 40), so the thirds below are of the item's own max rather than absolute.
 export function conditionFrom(condition: number, conditionMax: number): ItemCondition | undefined {
-  if (conditionMax <= 0 || condition < 0) return undefined;
-  const ratio = condition / conditionMax;
+  const ratio = conditionRatioFrom(condition, conditionMax);
+  if (ratio === undefined) return undefined;
   if (ratio >= 0.66) return 'Good condition';
   if (ratio >= 0.33) return 'Worn';
   return 'Damaged';
+}
+
+export function conditionRatioFrom(condition: number, conditionMax: number): number | undefined {
+  if (conditionMax <= 0 || condition < 0) return undefined;
+  return Math.min(condition / conditionMax, 1);
 }
 
 function ammoLabel(item: EquippedItemSnapshot): string | undefined {
@@ -79,6 +85,7 @@ export function slotFromItem(
     icon: iconForItem(item.name, item.type),
     spriteIcon: item.icon || undefined,
     condition: conditionFrom(item.condition, item.conditionMax),
+    conditionRatio: conditionRatioFrom(item.condition, item.conditionMax),
     ammo: ammoLabel(item),
     filled: true,
     active,
@@ -89,7 +96,7 @@ export function slotFromItem(
 // Paperdoll slots
 // ---------------------------------------------------------------------------
 
-export type PaperdollSlotId = 'head' | 'torso' | 'hands' | 'face' | 'back' | 'legs' | 'feet';
+export type PaperdollSlotId = 'head' | 'torso' | 'hands' | 'face' | 'back' | 'belt' | 'holster' | 'wrist' | 'legs' | 'feet';
 
 // PZ has ~110 body locations and the paperdoll has seven boxes, so each box
 // claims a list of them. Order within a list is priority: the first location
@@ -147,6 +154,24 @@ export const PAPERDOLL_SLOTS: {
   },
   { id: 'back', label: 'Back', icon: 'backpack', locations: ['Back', 'Satchel', 'FannyPackBack', 'FannyPackFront'] },
   {
+    id: 'belt',
+    label: 'Belt',
+    icon: 'circle-dot',
+    locations: ['Belt', 'BeltExtra'],
+  },
+  {
+    id: 'holster',
+    label: 'Holster',
+    icon: 'shield',
+    locations: ['Holster', 'HolsterLeft', 'HolsterRight', 'ShoulderHolster'],
+  },
+  {
+    id: 'wrist',
+    label: 'Wrist',
+    icon: 'watch',
+    locations: ['LeftWrist', 'RightWrist'],
+  },
+  {
     id: 'legs',
     label: 'Legs',
     icon: 'layers',
@@ -183,7 +208,7 @@ export function handSlots(toolbar: ToolbarSnapshot | null): [EquipSlotState, Equ
 // The numbered tray: what's in hand first, then whatever is attached to the
 // player's hotbar slots (belt, holster, ...). Hand items are marked active,
 // attachments aren't — that's the distinction the tray is there to show.
-export function hotbarSlots(toolbar: ToolbarSnapshot | null): EquipSlotState[] {
+function hotbarSlots(toolbar: ToolbarSnapshot | null): EquipSlotState[] {
   if (!toolbar) return [];
   const slots: EquipSlotState[] = [];
   const push = (item: EquippedItemSnapshot, label: string, active: boolean) => {
@@ -196,6 +221,45 @@ export function hotbarSlots(toolbar: ToolbarSnapshot | null): EquipSlotState[] {
   for (const attached of toolbar.attached) push(attached, attached.location ?? 'Attached', false);
 
   return slots;
+}
+
+export type HotbarGroupId = 'hands' | 'belt' | 'holster' | 'back' | 'webbing' | 'other';
+
+export interface HotbarGroup {
+  id: HotbarGroupId;
+  label: string;
+  slots: EquipSlotState[];
+}
+
+const HOTBAR_GROUPS: { id: HotbarGroupId; label: string; keyword?: string }[] = [
+  { id: 'hands', label: 'Hands' },
+  { id: 'belt', label: 'Belt', keyword: 'belt' },
+  { id: 'holster', label: 'Holster', keyword: 'holster' },
+  { id: 'back', label: 'Back', keyword: 'back' },
+  { id: 'webbing', label: 'Webbing', keyword: 'webbing' },
+  { id: 'other', label: 'Other' },
+];
+
+function hotbarGroupFor(slot: EquipSlotState): HotbarGroupId {
+  if (slot.active) return 'hands';
+  const location = slot.label.toLowerCase().replace(/[^a-z]/g, '');
+  if (location.includes('bag') || location.includes('bedroll')) return 'back';
+  return HOTBAR_GROUPS.find((group) => group.keyword && location.includes(group.keyword))?.id ?? 'other';
+}
+
+export function hotbarGroups(toolbar: ToolbarSnapshot | null): HotbarGroup[] {
+  const byGroup = new Map<HotbarGroupId, EquipSlotState[]>();
+  for (const slot of hotbarSlots(toolbar)) {
+    const id = hotbarGroupFor(slot);
+    const existing = byGroup.get(id);
+    if (existing) existing.push(slot);
+    else byGroup.set(id, [slot]);
+  }
+
+  return HOTBAR_GROUPS.flatMap(({ id, label }) => {
+    const slots = byGroup.get(id);
+    return slots?.length ? [{ id, label, slots }] : [];
+  });
 }
 
 // All seven paperdoll boxes, always — an empty slot is a meaningful readout

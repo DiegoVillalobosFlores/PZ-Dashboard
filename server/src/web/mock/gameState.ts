@@ -6,17 +6,21 @@ export interface Vitals {
   stamina: number;
 }
 
+export interface Conditions {
+  stress: number;
+  panic: number;
+  boredom: number;
+  pain: number;
+  infected: boolean;
+  bleeding: boolean;
+}
+
 export interface MapPin {
   id: string;
   xPct: number;
   yPct: number;
   kind: 'player' | 'zombie' | 'poi';
 }
-
-// Equipped items (hands, hotbar, worn clothing) are live from the mod and
-// modelled in lib/equipment.ts — there are no mock fixtures for them any
-// more, since a HUD showing a Fire Axe the player doesn't own is worse than
-// one showing an empty slot.
 
 export const mockVitals: Vitals = {
   health: 88,
@@ -34,6 +38,3 @@ export const mockMapPins: MapPin[] = [
   { id: 'z3', xPct: 60, yPct: 88, kind: 'zombie' },
   { id: 'z4', xPct: 30, yPct: 20, kind: 'zombie' },
 ];
-
-// Skills are live from the mod and modelled in lib/skills.ts — like equipped
-// items, there are no mock fixtures for them any more.

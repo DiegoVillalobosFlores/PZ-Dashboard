@@ -25,7 +25,7 @@ interface TileSpec {
   caption?: { fontSize: number };
   itemName?: { top: number; left: number; width: number; fontSize: number };
   ammoFontSize?: number;
-  conditionDot?: { top: number; right: number; size: number };
+  conditionBar?: { bottom: number; inset: number; height: number };
 }
 
 // Pixel offsets lifted directly from the Penpot components at both sizes
@@ -38,14 +38,14 @@ const SPECS: Record<EquipTileVariant, { wide: TileSpec; compact: TileSpec }> = {
       bracketLength: 10,
       iconSize: 27,
       badge: { size: 17, fontSize: 10 },
-      conditionDot: { top: 5, right: 5, size: 6 },
+      conditionBar: { bottom: 6, inset: 7, height: 3 },
     },
     compact: {
       box: 52,
       bracketLength: 8,
       iconSize: 22,
       badge: { size: 15, fontSize: 9 },
-      conditionDot: { top: 4, right: 4, size: 5 },
+      conditionBar: { bottom: 5, inset: 6, height: 3 },
     },
   },
   hand: {
@@ -55,9 +55,9 @@ const SPECS: Record<EquipTileVariant, { wide: TileSpec; compact: TileSpec }> = {
       iconSize: 26,
       iconOffset: { top: 29, left: 29 },
       insetLabel: { top: 16, left: 19, fontSize: 9 },
-      itemName: { top: 57, left: 4, width: 76, fontSize: 10 },
+      itemName: { top: 53, left: 4, width: 76, fontSize: 10 },
       ammoFontSize: 12,
-      conditionDot: { top: 6, right: 7, size: 7 },
+      conditionBar: { bottom: 8, inset: 9, height: 3 },
     },
     compact: {
       box: 62,
@@ -65,9 +65,9 @@ const SPECS: Record<EquipTileVariant, { wide: TileSpec; compact: TileSpec }> = {
       iconSize: 19,
       iconOffset: { top: 21, left: 22 },
       insetLabel: { top: 9, left: 10, fontSize: 8 },
-      itemName: { top: 42, left: 4, width: 54, fontSize: 9 },
+      itemName: { top: 38, left: 4, width: 54, fontSize: 9 },
       ammoFontSize: 10,
-      conditionDot: { top: 6, right: 6, size: 6 },
+      conditionBar: { bottom: 6, inset: 7, height: 3 },
     },
   },
   worn: {
@@ -76,14 +76,14 @@ const SPECS: Record<EquipTileVariant, { wide: TileSpec; compact: TileSpec }> = {
       bracketLength: 8,
       iconSize: 30,
       caption: { fontSize: 12 },
-      conditionDot: { top: 6, right: 6, size: 6 },
+      conditionBar: { bottom: 6, inset: 7, height: 3 },
     },
     compact: {
       box: 54,
       bracketLength: 8,
       iconSize: 22,
       caption: { fontSize: 11 },
-      conditionDot: { top: 5, right: 5, size: 5 },
+      conditionBar: { bottom: 5, inset: 6, height: 3 },
     },
   },
 };
@@ -227,18 +227,26 @@ export function EquipTile({
             </span>
           ))}
 
-        {spec.conditionDot && slot.condition && (
+        {spec.conditionBar && slot.condition && slot.conditionRatio !== undefined && (
           <span
             style={{
               position: 'absolute',
-              top: spec.conditionDot.top,
-              right: spec.conditionDot.right,
-              width: spec.conditionDot.size,
-              height: spec.conditionDot.size,
-              borderRadius: '50%',
-              background: conditionColor(slot.condition),
+              bottom: spec.conditionBar.bottom,
+              left: spec.conditionBar.inset,
+              right: spec.conditionBar.inset,
+              height: spec.conditionBar.height,
+              background: 'rgba(255, 255, 255, 0.14)',
             }}
-          />
+          >
+            <span
+              style={{
+                display: 'block',
+                width: `${slot.conditionRatio * 100}%`,
+                height: '100%',
+                background: conditionColor(slot.condition),
+              }}
+            />
+          </span>
         )}
       </div>
 

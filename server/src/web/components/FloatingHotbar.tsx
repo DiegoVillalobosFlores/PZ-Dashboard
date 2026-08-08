@@ -1,48 +1,138 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { EquipTile } from './EquipTile';
 import { GlassPanel } from './GlassPanel';
 import { sendAction, useGameSubscription } from '../lib/gameSocket';
-import { hotbarSlots, type EquipSlotState } from '../lib/equipment';
+import { hotbarGroups, type EquipSlotState } from '../lib/equipment';
 
-// v9 "scanner HUD" hotbar: a frosted glass tray like the rest of the floating
-// surfaces, with corner brackets on occupied slots and the lit
-// background on whatever is actually in hand. Only the tray is local — the
-// tiles are <EquipTile>, shared with the hand widget and the paperdoll.
+const MAX_ROWS_ROOMY = 2;
+
+function columnsOf(slots: EquipSlotState[], maxRows: number): EquipSlotState[][] {
+  const columns: EquipSlotState[][] = [];
+  for (let i = 0; i < slots.length; i += maxRows) columns.push(slots.slice(i, i + maxRows));
+  return columns;
+}
+
+function groupNaturalWidth(slotCount: number, tile: number, gap: number, pad: number, rows: number) {
+  const cols = Math.ceil(slotCount / rows) || 0;
+  return pad * 2 + cols * tile + Math.max(0, cols - 1) * gap;
+}
+
 export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
-  const slots =
+  const groups =
     useGameSubscription('hotbar', (msg) =>
-      msg.category === 'toolbar' ? hotbarSlots(msg.data) : undefined,
+      msg.category === 'toolbar' ? hotbarGroups(msg.data) : undefined,
     ) ?? [];
 
-  // Real PZ behavior for pressing a number key: that slot's item goes into
-  // the primary hand. No optimistic local state — the mod runs the equip as a
-  // timed action and the toolbar category reports the result a moment later,
-  // so the tray shows what the character is actually holding rather than what
-  // was clicked.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [maxRows, setMaxRows] = useState(MAX_ROWS_ROOMY);
+
+  const gap = compact ? 8 : 10;
+  const groupGap = compact ? 8 : 10;
+  const pad = compact ? 8 : 10;
+  const tile = compact ? 52 : 64;
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root || groups.length === 0) {
+      setMaxRows(MAX_ROWS_ROOMY);
+      return;
+    }
+
+    const measure = () => {
+      const parent = root.parentElement;
+      if (!parent) return;
+      const budget = parent.clientWidth;
+      if (!budget) return;
+
+      let total = 0;
+      groups.forEach((g, i) => {
+        total += groupNaturalWidth(g.slots.length, tile, gap, pad, MAX_ROWS_ROOMY);
+        if (i > 0) total += groupGap;
+      });
+
+      setMaxRows(total > budget ? 1 : MAX_ROWS_ROOMY);
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (root.parentElement) ro.observe(root.parentElement);
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, [groups, compact, gap, groupGap, pad, tile]);
+
   function equip(slot: EquipSlotState) {
     if (slot.itemType) sendAction('equipPrimary', { itemType: slot.itemType });
   }
 
-  // Nothing to show before the first toolbar snapshot arrives, and an empty
-  // tray beats a glass box of mock items the player doesn't own.
-  if (slots.length === 0) return null;
+  if (groups.length === 0) return null;
 
   return (
-    <GlassPanel
+    <div
+      ref={rootRef}
       style={{
         display: 'flex',
-        gap: 10,
-        padding: 10,
+        flexDirection: 'row',
+        flexWrap: 'nowrap',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        maxWidth: '100%',
+        gap: groupGap,
+        pointerEvents: 'auto',
+        overflowX: maxRows === 1 ? 'auto' : 'visible',
       }}
     >
-      {slots.map((slot) => (
-        <EquipTile
-          key={slot.id}
-          slot={slot}
-          variant="hotbar"
-          wide={!compact}
-          onClick={() => equip(slot)}
-        />
+      {groups.map((group) => (
+        <GlassPanel
+          key={group.id}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: compact ? 6 : 8,
+            padding: pad,
+            flex: '0 0 auto',
+          }}
+        >
+          <span
+            className="pz-label"
+            style={{
+              fontSize: compact ? 9 : 10,
+              fontFamily: 'var(--font-display)',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              color: 'var(--color-text-tertiary)',
+            }}
+          >
+            {group.label}
+          </span>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'nowrap',
+              alignItems: 'flex-start',
+              gap,
+            }}
+          >
+            {columnsOf(group.slots, maxRows).map((column) => (
+              <div
+                key={column[0]!.id}
+                style={{ display: 'flex', flexDirection: 'column', gap }}
+              >
+                {column.map((slot) => (
+                  <EquipTile
+                    key={slot.id}
+                    slot={slot}
+                    variant="hotbar"
+                    wide={!compact}
+                    onClick={() => equip(slot)}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </GlassPanel>
       ))}
-    </GlassPanel>
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { CharacterModel } from './CharacterModel';
 import { EquipTile } from './EquipTile';
 import { Icon } from './Icon';
@@ -5,7 +6,27 @@ import { GlassPanel } from './GlassPanel';
 import { useGameSubscription } from '../lib/gameSocket';
 import { paperdollSlots, type EquipSlotState, type PaperdollSlotId } from '../lib/equipment';
 
-const ALL_SLOTS: PaperdollSlotId[] = ['head', 'torso', 'hands', 'face', 'back', 'legs', 'feet'];
+const ALL_SLOTS: PaperdollSlotId[] = ['head', 'torso', 'hands', 'face', 'back', 'belt', 'holster', 'wrist', 'legs', 'feet'];
+
+function useMeasuredHeight() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [height, setHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => {
+      const h = el.clientHeight;
+      if (h > 0) setHeight(h);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, height };
+}
 
 export function EquipmentPanel({
   compact = false,
@@ -28,9 +49,16 @@ export function EquipmentPanel({
     PaperdollSlotId,
     EquipSlotState
   >;
-  const silhouetteSize = compact ? 180 : 340;
+  const { ref: rowRef, height: rowHeight } = useMeasuredHeight();
   const gridGap = compact ? 12 : 16;
   const sideGap = compact ? 18 : 32;
+  const paddingX = compact ? 26 : 40;
+  const panelWidth = compact ? 520 : 680;
+  const tileBox = compact ? 54 : 72;
+  const tileGridWidth = 2 * tileBox + gridGap;
+  const maxModelWidth = panelWidth - 2 * paddingX - tileGridWidth - sideGap;
+  const fallbackSize = compact ? 180 : 340;
+  const modelSize = rowHeight > 0 ? Math.min(rowHeight, Math.floor(maxModelWidth)) : fallbackSize;
 
   const tile = (id: PaperdollSlotId) => (
     <EquipTile
@@ -47,6 +75,8 @@ export function EquipmentPanel({
       cornerBrackets={{ length: 20, thickness: 2, inset: 6, opacity: 0.85 }}
       style={{
         width: compact ? 520 : 680,
+        maxWidth: '100%',
+        boxSizing: 'border-box',
         padding: compact ? '20px 26px' : '28px 40px',
         display: 'flex',
         flexDirection: 'column',
@@ -66,13 +96,13 @@ export function EquipmentPanel({
       >
         {characterName}
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: sideGap }}>
+      <div ref={rowRef} style={{ display: 'flex', alignItems: 'stretch', gap: sideGap }}>
         <CharacterModel
-          size={silhouetteSize}
+          size={modelSize}
           fallback={
             <Icon
               name="person-standing"
-              size={silhouetteSize}
+              size={fallbackSize}
               color="var(--color-text-tertiary)"
               strokeWidth={1.5}
             />
@@ -81,7 +111,7 @@ export function EquipmentPanel({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(3, 1fr)`,
+            gridTemplateColumns: `repeat(2, 1fr)`,
             gap: gridGap,
           }}
         >
