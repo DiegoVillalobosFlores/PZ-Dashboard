@@ -1,4 +1,5 @@
 import { EquipTile } from './EquipTile';
+import { GlassPanel } from './GlassPanel';
 import { sendAction, useGameSubscription } from '../lib/gameSocket';
 import { hotbarSlots, type EquipSlotState } from '../lib/equipment';
 
@@ -26,16 +27,11 @@ export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
   if (slots.length === 0) return null;
 
   return (
-    <div
+    <GlassPanel
       style={{
         display: 'flex',
         gap: 10,
         padding: 10,
-        background: 'var(--color-glass-panel)',
-        backdropFilter: 'var(--frost-blur)',
-        border: '1px solid var(--color-accent-border-medium)',
-        borderRadius: 'var(--radius-sharp)',
-        boxShadow: '0 6px 26px rgba(0, 0, 0, 0.5)',
       }}
     >
       {slots.map((slot) => (
@@ -47,6 +43,6 @@ export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
           onClick={() => equip(slot)}
         />
       ))}
-    </div>
+    </GlassPanel>
   );
 }

@@ -9,6 +9,7 @@ type FigurePart = {
   texture: string | null;
   tint: [number, number, number] | null;
   layer: number;
+  offset?: number[];
 };
 
 type Figure = { female: boolean; parts: FigurePart[]; updatedAt: number };
@@ -38,6 +39,19 @@ function fetchMesh(url: string): Promise<MeshData | null> {
 // right-handed with a bottom-left one. Negating Z and flipping V at buffer
 // build time is what stops the character coming out mirrored and with its
 // textures upside down.
+function transformMesh(mesh: MeshData, matrix: number[]): MeshData {
+  const positions = [...mesh.positions];
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i]!;
+    const y = positions[i + 1]!;
+    const z = positions[i + 2]!;
+    positions[i] = x * matrix[0]! + y * matrix[4]! + z * matrix[8]! + matrix[12]!;
+    positions[i + 1] = x * matrix[1]! + y * matrix[5]! + z * matrix[9]! + matrix[13]!;
+    positions[i + 2] = x * matrix[2]! + y * matrix[6]! + z * matrix[10]! + matrix[14]!;
+  }
+  return { ...mesh, positions, normals: [] };
+}
+
 function toGeometry(mesh: MeshData): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
 
@@ -451,7 +465,8 @@ export function CharacterModel({
           }
         }
 
-        const geometry = toGeometry(mesh);
+        const effectiveMesh = part.offset ? transformMesh(mesh, part.offset) : mesh;
+        const geometry = toGeometry(effectiveMesh);
         if (part.layer === LAYER_BODY) {
           geometry.setIndex(clothedBodyIndices(mesh, geometry, garments));
         }

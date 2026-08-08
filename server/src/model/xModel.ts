@@ -309,6 +309,59 @@ export function parseXModel(text: string): MeshGeometry[] {
   return meshes;
 }
 
+function extractBones(cur: Cursor, bones: Map<string, number[]>, parentTransform: number[]) {
+  while (cur.i < cur.tokens.length) {
+    const token = cur.tokens[cur.i]!;
+    if (token.kind === "sym") {
+      if (token.value === "}") { cur.i += 1; return; }
+      cur.i += 1;
+      continue;
+    }
+    if (token.kind !== "id") { cur.i += 1; continue; }
+
+    if (token.value === "Frame") {
+      cur.i += 1;
+      const nameToken = cur.tokens[cur.i];
+      const name = nameToken?.kind === "id" ? nameToken.value : "";
+      if (nameToken?.kind === "id") cur.i += 1;
+      if (cur.tokens[cur.i]?.kind === "sym") cur.i += 1;
+
+      let frameTransform = identityMatrix();
+      const saved = cur.i;
+      const maybeId = cur.tokens[cur.i];
+      if (maybeId?.kind === "id" && maybeId.value === "FrameTransformMatrix") {
+        cur.i += 1;
+        if (cur.tokens[cur.i]?.kind === "sym" && (cur.tokens[cur.i] as Token & { value: string }).value === "{") {
+          cur.i += 1;
+          const matrix = readMatrix(cur);
+          if (matrix) frameTransform = matrix;
+          while (cur.i < cur.tokens.length) {
+            const end = cur.tokens[cur.i]!;
+            cur.i += 1;
+            if (end.kind === "sym" && end.value === "}") break;
+          }
+        } else {
+          cur.i = saved;
+        }
+      }
+
+      const childTransform = multiplyMatrices(parentTransform, frameTransform);
+      if (name) bones.set(name, childTransform);
+      extractBones(cur, bones, childTransform);
+      continue;
+    }
+
+    skipBlock(cur);
+  }
+}
+
+export function extractSkeleton(text: string): Map<string, number[]> {
+  const cur: Cursor = { tokens: tokenize(text), i: 0 };
+  const bones = new Map<string, number[]>();
+  extractBones(cur, bones, identityMatrix());
+  return bones;
+}
+
 const cache = new Map<string, MeshGeometry | null>();
 
 // A .x file can hold several variants of the same garment (Bob_Trousers.x

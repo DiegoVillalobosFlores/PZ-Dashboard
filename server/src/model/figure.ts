@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolveMediaPath, resolveModelPath, resolveTexturePath } from "./assets";
+import { extractSkeleton } from "./xModel";
 
 export type FigurePart = {
   id: string;
@@ -8,6 +9,7 @@ export type FigurePart = {
   texture: string | null;
   tint: [number, number, number] | null;
   layer: number;
+  offset?: number[];
 };
 
 export type Figure = {
@@ -53,6 +55,7 @@ type ClothingDef = {
   femaleModel: string;
   textureChoices: string[];
   baseTextures: string[];
+  attachments: string[];
 };
 
 async function clothingDef(name: string): Promise<ClothingDef | null> {
@@ -64,11 +67,15 @@ async function clothingDef(name: string): Promise<ClothingDef | null> {
   if (path) {
     try {
       const xml = await readFile(path, "utf8");
+      const attachments = tagValues(xml, "m_Attachments")
+        .flatMap((v) => v.split(",").map((s) => s.trim()))
+        .filter(Boolean);
       def = {
         maleModel: tagValue(xml, "m_MaleModel"),
         femaleModel: tagValue(xml, "m_FemaleModel"),
         textureChoices: tagValues(xml, "textureChoices").filter(Boolean),
         baseTextures: tagValues(xml, "m_BaseTextures").filter(Boolean),
+        attachments,
       };
     } catch {
       def = null;
@@ -156,12 +163,54 @@ function textureUrl(path: string) {
 // then hair and beard on top.
 const LAYER = { body: 0, painted: 1, clothing: 2, hair: 3 } as const;
 
+const ATTACHMENT_BONE: Record<string, string> = {
+  "base:eyes": "Bip01_Head",
+  "base:head": "Bip01_Head",
+  "base:hat": "Bip01_Head",
+  "base:mask": "Bip01_Head",
+  "base:fullhat": "Bip01_Head",
+  "base:ears": "Bip01_Head",
+  "base:belt": "Bip01_Spine1",
+  "base:beltextra": "Bip01_Spine1",
+  "base:holster": "Bip01_Spine1",
+  "base:holsterleft": "Bip01_Spine1",
+  "base:holsterright": "Bip01_Spine1",
+  "base:shoulderholster": "Bip01_Spine1",
+  "base:back": "Bip01_BackPack",
+  "base:satchel": "Bip01_BackPack",
+  "base:fannypackfront": "Bip01_Spine1",
+  "base:fannypackback": "Bip01_BackPack",
+  "base:leftwrist": "Bip01_L_Forearm",
+  "base:rightwrist": "Bip01_R_Forearm",
+  "base:ankles": "Bip01_L_Foot",
+};
+
+let bodySkeleton: Map<string, number[]> | null = null;
+
+async function loadBodySkeleton(female: boolean): Promise<Map<string, number[]> | null> {
+  if (bodySkeleton) return bodySkeleton;
+  const bodyModel = female ? "skinned/FemaleBody" : "skinned/MaleBody";
+  const absPath = await resolveModelPath(bodyModel);
+  console.error(`[figure] loadBodySkeleton bodyModel=${bodyModel} absPath=${absPath}`);
+  if (!absPath) return null;
+  try {
+    const text = await readFile(absPath, "latin1");
+    bodySkeleton = extractSkeleton(text);
+    console.error(`[figure] skeleton loaded: ${bodySkeleton.size} bones`);
+    return bodySkeleton;
+  } catch (err: any) {
+    console.error(`[figure] skeleton load error:`, err.message || err);
+    return null;
+  }
+}
+
 export async function buildFigure(appearance: Appearance): Promise<Figure> {
   const female = Boolean(appearance.female);
   const parts: FigurePart[] = [];
   const missing: string[] = [];
 
   const bodyModel = female ? "skinned/FemaleBody" : "skinned/MaleBody";
+  const skeleton = await loadBodySkeleton(female);
   const bodyPath = await resolveModelPath(bodyModel);
   if (bodyPath) {
     const skin = await resolveBodyTexture(bodyTexture(appearance, female));
@@ -202,13 +251,31 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
     }
     if (!hasModel && !texture) continue;
 
+    let offset: number[] | undefined;
+    let debugInfo = '';
+    const isStatic = hasModel && /[/\\]static[/\\]/i.test(modelPath);
+    if (isStatic && skeleton) {
+      const boneName =
+        (worn.location && ATTACHMENT_BONE[worn.location]) ??
+        def.attachments.map((a) => ATTACHMENT_BONE[a]).find(Boolean);
+      if (boneName) {
+        offset = skeleton.get(boneName);
+        debugInfo = offset ? ` [bone=${boneName}]` : ` [bone ${boneName} MISSING from skeleton]`;
+      } else {
+        debugInfo = ` [loc=${worn.location} att=${def.attachments}]`;
+      }
+    } else if (isStatic && !skeleton) {
+      debugInfo = ` [NO SKELETON]`;
+    }
+
     parts.push({
       id: `worn:${index}:${itemName}`,
-      label: worn.name || itemName,
+      label: (worn.name || itemName) + debugInfo,
       model: modelUrl(resolvedModel),
       texture: texture && (await resolveTexturePath(texture)) ? textureUrl(texture) : null,
       tint: rgb(worn.tint),
       layer: hasModel ? LAYER.clothing : LAYER.painted,
+      offset,
     });
   }
 
@@ -243,5 +310,5 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
   }
 
   parts.sort((a, b) => a.layer - b.layer);
-  return { female, parts, missing };
+  return { female, parts, missing, _debug: skeleton ? { boneCount: skeleton.size, hasHead: skeleton.has('Bip01_Head'), hasSpine1: skeleton.has('Bip01_Spine1'), hasBackPack: skeleton.has('Bip01_BackPack'), hasForearm: skeleton.has('Bip01_L_Forearm') } : null };
 }

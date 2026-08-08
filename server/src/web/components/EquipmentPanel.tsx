@@ -1,7 +1,7 @@
 import { CharacterModel } from './CharacterModel';
 import { EquipTile } from './EquipTile';
 import { Icon } from './Icon';
-import { CornerBrackets } from './CornerBrackets';
+import { GlassPanel } from './GlassPanel';
 import { useGameSubscription } from '../lib/gameSocket';
 import { paperdollSlots, type EquipSlotState, type PaperdollSlotId } from '../lib/equipment';
 
@@ -43,22 +43,17 @@ export function EquipmentPanel({
   );
 
   return (
-    <div
+    <GlassPanel
+      cornerBrackets={{ length: 20, thickness: 2, inset: 6, opacity: 0.85 }}
       style={{
-        position: 'relative',
         width: compact ? 520 : 680,
         padding: compact ? '20px 26px' : '28px 40px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: compact ? 16 : 24,
-        background: 'var(--color-glass-panel)',
-        backdropFilter: 'var(--frost-blur)',
-        borderRadius: 'var(--radius-sharp)',
-        boxShadow: '0 3px 16px rgba(0, 0, 0, 0.4)',
       }}
     >
-      <CornerBrackets length={20} thickness={2} inset={6} opacity={0.85} />
       <span
         style={{
           fontSize: compact ? 16 : 18,
@@ -93,6 +88,6 @@ export function EquipmentPanel({
           {ALL_SLOTS.map(tile)}
         </div>
       </div>
-    </div>
+    </GlassPanel>
   );
 }

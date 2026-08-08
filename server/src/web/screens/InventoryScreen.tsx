@@ -112,7 +112,6 @@ export function InventoryScreen() {
     >
       <div style={{ pointerEvents: 'auto', width: isWide ? 480 : 340 }}>
         <GlassPanel
-          bg="var(--color-glass-72)"
           style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}
         >
           <div

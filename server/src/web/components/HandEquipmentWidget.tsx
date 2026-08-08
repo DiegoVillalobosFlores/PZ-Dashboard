@@ -1,4 +1,4 @@
-import { CornerBrackets } from './CornerBrackets';
+import { GlassPanel } from './GlassPanel';
 import { EquipTile } from './EquipTile';
 import { useGameSubscription } from '../lib/gameSocket';
 import { handSlots, type EquipSlotState } from '../lib/equipment';
@@ -27,16 +27,13 @@ export function HandEquipmentWidget({
   const gap = wide ? 8 : 6;
 
   return (
-    <div
+    <GlassPanel
+      cornerBrackets={{ length: 12, thickness: 2, inset: 3, opacity: 0.85 }}
       style={{
-        position: 'relative',
         width: pad * 2 + slotSize * 2 + gap,
         height: pad * 2 + slotSize,
-        background: 'var(--color-glass-panel)',
-        backdropFilter: 'var(--frost-blur)',
       }}
     >
-      <CornerBrackets length={12} thickness={2} inset={3} opacity={0.85} />
       <div style={{ position: 'absolute', top: pad, left: pad, display: 'flex', gap }}>
         {slots.map((slot) => (
           <EquipTile
@@ -48,6 +45,6 @@ export function HandEquipmentWidget({
           />
         ))}
       </div>
-    </div>
+    </GlassPanel>
   );
 }

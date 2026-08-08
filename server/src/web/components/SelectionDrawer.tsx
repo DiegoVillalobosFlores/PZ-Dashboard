@@ -95,9 +95,9 @@ export function SelectionDrawer({
       transitionProps={{ transition: 'slide-left', duration: 200 }}
       styles={{
         content: {
-          background: 'var(--color-glass-drawer)',
+          background: 'var(--color-glass-panel)',
           backdropFilter: 'var(--frost-blur)',
-          boxShadow: '-12px 0 32px rgba(0, 0, 0, 0.55)',
+          boxShadow: '-12px 0 32px rgba(0, 0, 0, 0.4)',
         },
         body: { padding: 0, height: '100%', position: 'relative' },
       }}

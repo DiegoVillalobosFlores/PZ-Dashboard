@@ -1,5 +1,5 @@
 import { Icon } from './Icon';
-import { CornerBrackets } from './CornerBrackets';
+import { GlassPanel } from './GlassPanel';
 import { MAX_SKILL_LEVEL, type SkillCategoryState, type SkillState } from '../lib/skills';
 
 const MAX_LEVEL = MAX_SKILL_LEVEL;
@@ -165,21 +165,17 @@ export function SkillsPanel({
   );
 
   return (
-    <div
+    <GlassPanel
+      cornerBrackets={{ length: 20, thickness: 2, inset: 6, opacity: 0.85 }}
       style={{
-        position: 'relative',
         width: compact ? 'min(340px, 100%)' : 'min(1370px, 100%)',
         maxHeight: '100%',
         display: 'flex',
         flexDirection: 'column',
         gap: 14,
         padding: '20px 24px',
-        background: 'var(--color-glass-panel)',
-        backdropFilter: 'var(--frost-blur)',
-        boxShadow: '0 3px 16px rgba(0, 0, 0, 0.4)',
       }}
     >
-      <CornerBrackets length={20} thickness={2} inset={6} opacity={0.85} />
       {header}
       <div style={{ minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {categories.length === 0 && emptyMessage && (
@@ -191,6 +187,6 @@ export function SkillsPanel({
           <CategorySection key={category.id} category={category} tileWidth={tileWidth} compact={compact} />
         ))}
       </div>
-    </div>
+    </GlassPanel>
   );
 }
