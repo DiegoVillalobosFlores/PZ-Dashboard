@@ -1,0 +1,3 @@
+name=PZ Dashboard
+id=PZDashboard
+description=Streams live game state (status, inventory, map, skills, toolbar) to a local companion server for the PZ Dashboard second-screen app. Configure which categories stream from Options > Mods > PZ Dashboard to control performance impact.
