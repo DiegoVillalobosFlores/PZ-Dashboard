@@ -120,6 +120,20 @@ function MiniFlag({ name, icon, active, compact }: { name: string; icon: string;
   );
 }
 
+function Divider({ height }: { height: number }) {
+  return (
+    <span
+      style={{
+        width: 1,
+        height,
+        flexShrink: 0,
+        background: 'var(--color-border-default)',
+        opacity: 0.5,
+      }}
+    />
+  );
+}
+
 export function ConditionCluster({ compact = false }: { compact?: boolean }) {
   const vitals =
     useGameSubscription('vitals', (msg) =>
@@ -130,9 +144,80 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
     msg.category === 'status' ? statusToConditions(msg.data) : undefined,
   );
 
-  const iconSize = compact ? 16 : 20;
-  const rowGap = compact ? 6 : 10;
-  const rowGapVitals = compact ? 10 : 16;
+  const iconSize = compact ? 17 : 20;
+
+  const healthChip = (
+    <Tooltip label={vitalsLabel('health', vitals.health)} styles={TOOLTIP_STYLES} withArrow arrowSize={6}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 5 : 6, cursor: 'default', flexShrink: 0 }}>
+        <Icon name="heart" size={iconSize} color={healthColor(vitals.health)} />
+        <span
+          style={{
+            fontSize: compact ? 15 : 16,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--color-text-primary)',
+            fontWeight: 700,
+          }}
+        >
+          {vitals.health}%
+        </span>
+      </div>
+    </Tooltip>
+  );
+
+  // Mobile: one full-width row so the strip reads at a glance without eating
+  // two lines of the map's top edge - the wide layout keeps the stacked
+  // two-row pill since it already has a whole side of the screen to itself.
+  if (compact) {
+    return (
+      <GlassPanel
+        cornerBrackets={{ length: 12, thickness: 2, inset: 3, opacity: 0.85 }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 9,
+          padding: '9px 12px',
+          width: '100%',
+          overflowX: 'auto',
+        }}
+      >
+        {healthChip}
+        <Divider height={16} />
+        <MiniVital name="hunger" icon="drumstick" value={vitals.hunger} compact={compact} />
+        <MiniVital name="thirst" icon="droplet" value={vitals.thirst} compact={compact} />
+        <MiniVital name="fatigue" icon="moon" value={vitals.fatigue} compact={compact} />
+        <MiniVital name="stamina" icon="zap" value={vitals.stamina} compact={compact} />
+        {conditions && (
+          <>
+            <Divider height={16} />
+            <MiniCond
+              name="stress"
+              icon="brain"
+              value={conditions.stress}
+              compact={compact}
+              severe={conditions.stress > 60}
+            />
+            <MiniCond
+              name="panic"
+              icon="alert-triangle"
+              value={conditions.panic}
+              compact={compact}
+              severe={conditions.panic > 60}
+            />
+            <MiniCond
+              name="pain"
+              icon="activity"
+              value={conditions.pain}
+              compact={compact}
+              severe={conditions.pain > 60}
+            />
+            {(conditions.infected || conditions.bleeding) && <Divider height={16} />}
+            {conditions.infected && <MiniFlag name="infected" icon="skull" active compact={compact} />}
+            {conditions.bleeding && <MiniFlag name="bleeding" icon="droplet" active compact={compact} />}
+          </>
+        )}
+      </GlassPanel>
+    );
+  }
 
   return (
     <GlassPanel
@@ -140,41 +225,20 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: rowGap,
-        padding: compact ? '6px 10px' : '8px 18px',
+        gap: 10,
+        padding: '8px 18px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: rowGapVitals }}>
-        <Tooltip label={vitalsLabel('health', vitals.health)} styles={TOOLTIP_STYLES} withArrow arrowSize={6}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 4 : 6, cursor: 'default' }}>
-            <Icon name="heart" size={iconSize} color={healthColor(vitals.health)} />
-            <span
-              style={{
-                fontSize: compact ? 14 : 16,
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--color-text-primary)',
-                fontWeight: 600,
-              }}
-            >
-              {vitals.health}%
-            </span>
-          </div>
-        </Tooltip>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {healthChip}
         <MiniVital name="hunger" icon="drumstick" value={vitals.hunger} compact={compact} />
         <MiniVital name="thirst" icon="droplet" value={vitals.thirst} compact={compact} />
         <MiniVital name="fatigue" icon="moon" value={vitals.fatigue} compact={compact} />
         <MiniVital name="stamina" icon="zap" value={vitals.stamina} compact={compact} />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 8 : 14 }}>
-        <span
-          style={{
-            width: 1,
-            height: compact ? 14 : 18,
-            background: 'var(--color-border-default)',
-            opacity: 0.5,
-          }}
-        />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <Divider height={18} />
         {conditions ? (
           <>
             <MiniCond
@@ -198,9 +262,7 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
               compact={compact}
               severe={conditions.pain > 60}
             />
-            {!compact && (
-              <MiniCond name="boredom" icon="flame" value={conditions.boredom} compact={compact} severe={false} />
-            )}
+            <MiniCond name="boredom" icon="flame" value={conditions.boredom} compact={compact} severe={false} />
             <MiniFlag name="infected" icon="skull" active={conditions.infected} compact={compact} />
             <MiniFlag name="bleeding" icon="droplet" active={conditions.bleeding} compact={compact} />
           </>

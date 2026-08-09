@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMediaQuery } from '@mantine/hooks';
 import { Icon } from './Icon';
 import { HudIconButton } from './HudIconButton';
 import {
@@ -14,6 +15,7 @@ import {
 import { DEFAULT_MAP_REGION } from '../lib/mapTiles';
 import { useGameSubscription } from '../lib/gameSocket';
 import { useMapFocus } from '../lib/mapFocus';
+import { useModalContext } from './ModalContext';
 import { annotationColor } from '../lib/annotations';
 import type { MapPin } from '../mock/gameState';
 
@@ -174,6 +176,9 @@ export function MapCanvas({
   const annotations = useGameSubscription('map:annotations', (msg) =>
     msg.category === 'annotations' ? msg.data.markers : undefined,
   );
+  const vehicles = useGameSubscription('map:vehicles', (msg) =>
+    msg.category === 'vehicles' ? msg.data.vehicles : undefined,
+  );
 
   const [data, setData] = useState<VectorMapData | null>(null);
   const [zoomSquares, setZoomSquares] = useState(DEFAULT_ZOOM_SQUARES);
@@ -182,6 +187,13 @@ export function MapCanvas({
   // button, which resumes following the live player position.
   const [manualCenter, setManualCenter] = useState<WorldPoint | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  // The floating recenter/clear-route/map-notes buttons stack up the right
+  // edge of an already tight mobile screen, so mobile only shows them on the
+  // map screen itself (no ScreenModal open) - once a screen modal like
+  // Inventory or Health covers the map, there's nothing for them to act on.
+  const isWide = useMediaQuery('(min-width: 900px)');
+  const { isModalOpen } = useModalContext();
+  const showMapButtons = isWide || !isModalOpen;
   // Set by clicking the map - a chosen destination to route to from the
   // live player position. Cleared by the "clear route" button.
   const [destination, setDestination] = useState<WorldPoint | null>(null);
@@ -585,6 +597,20 @@ export function MapCanvas({
               {a.text}
             </text>
           ))}
+        {vehicles?.map((vehicle) => (
+          <circle
+            key={`vehicle-${vehicle.id}`}
+            cx={vehicle.x}
+            cy={vehicle.y}
+            r={zoomSquares / 70}
+            fill={vehicle.current ? PIN_COLOR.player : 'var(--color-warning)'}
+            stroke="white"
+            strokeWidth={zoomSquares / 900}
+          >
+            <title>{vehicle.name}</title>
+          </circle>
+        ))}
+
 
         {routePoints && routePoints.length > 1 && (
           <polyline
@@ -621,7 +647,7 @@ export function MapCanvas({
         )}
       </svg>
 
-      {manualCenter && (
+      {showMapButtons && manualCenter && (
         // Stops every pointer/click event type here from bubbling into the
         // map container's own pan/zoom handlers - without this, a real
         // click's pointerdown/up (which still bubble even though React's
@@ -631,7 +657,7 @@ export function MapCanvas({
         // double-click there - triggering double-click-to-zoom instead of
         // (or in addition to) recentering.
         <div
-          style={{ position: 'absolute', right: 20, bottom: 186 }}
+          style={{ position: 'absolute', right: 20, bottom: 'calc(var(--hud-hotbar-inset) + 68px)' }}
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
@@ -648,15 +674,19 @@ export function MapCanvas({
         </div>
       )}
 
-      {destination && (
+      {showMapButtons && destination && (
         // Same event-isolation reasoning as the recenter button above. Stacks
         // above whichever of the fixed right-edge buttons is currently
-        // showing: HudShell's "Map notes" always occupies bottom:132, and
-        // the recenter button above adds bottom:186 while manualCenter is
-        // set - so this one takes 186 normally, or 240 when it'd otherwise
-        // land on top of recenter.
+        // showing: HudShell's "Map notes" always occupies hotbar-inset+12,
+        // and the recenter button above adds another 56px while manualCenter
+        // is set - so this one takes hotbar-inset+68 normally, or +124 when
+        // it'd otherwise land on top of recenter.
         <div
-          style={{ position: 'absolute', right: 20, bottom: manualCenter ? 240 : 186 }}
+          style={{
+            position: 'absolute',
+            right: 20,
+            bottom: `calc(var(--hud-hotbar-inset) + ${manualCenter ? 124 : 68}px)`,
+          }}
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}

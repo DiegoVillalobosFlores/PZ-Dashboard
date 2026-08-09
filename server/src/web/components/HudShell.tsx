@@ -6,14 +6,19 @@ import { ConditionCluster } from './ConditionCluster';
 import { FloatingHotbar } from './FloatingHotbar';
 import { HudIconButton } from './HudIconButton';
 import { MapCanvas } from './MapCanvas';
-import { QuickNav, useCurrentDestinationId } from './QuickNav';
+import { MOBILE_NAV_HEIGHT, QuickNav, useCurrentDestinationId } from './QuickNav';
 import { mockMapPins } from '../mock/gameState';
 import { ModalProvider, useModalContext } from './ModalContext';
 
 const HOTBAR_CLEARANCE = 16;
-const TOP_INSET = { wide: 88, compact: 104 };
-const LEFT_INSET = { wide: 112, compact: 24 };
-const RIGHT_INSET = 80;
+// compact matches the single-row mobile ConditionCluster's height (~57px)
+// plus its 8px top padding and a small clearance gap - the old value was
+// tuned for the two-row layout it replaced.
+const TOP_INSET = { wide: 88, compact: 76 };
+const LEFT_INSET = { wide: 112, compact: 12 };
+// Mobile hides the right-edge map buttons entirely, so it only needs a
+// screen-edge margin rather than room to clear them.
+const RIGHT_INSET = { wide: 80, compact: 12 };
 
 function HudShellInner() {
   const isWide = useMediaQuery('(min-width: 900px)');
@@ -22,7 +27,10 @@ function HudShellInner() {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const hotbarRef = useRef<HTMLDivElement | null>(null);
   const { isModalOpen } = useModalContext();
-  const hotbarBottom = isModalOpen ? 4 : (isWide ? 40 : 0);
+  // Mobile hotbar always clears the persistent bottom tab bar; the wide
+  // layout has no bottom bar (nav lives in the left rail) so it only needs
+  // to clear the screen edge.
+  const hotbarBottom = isWide ? (isModalOpen ? 4 : 40) : MOBILE_NAV_HEIGHT + (isModalOpen ? 4 : 10);
   const hotbarForcedSingleRow = isModalOpen;
 
   useEffect(() => {
@@ -51,7 +59,7 @@ function HudShellInner() {
         '--hud-hotbar-inset': '0px',
         '--hud-top-inset': `${isWide ? TOP_INSET.wide : TOP_INSET.compact}px`,
         '--hud-left-inset': `${isWide ? LEFT_INSET.wide : LEFT_INSET.compact}px`,
-        '--hud-right-inset': `${RIGHT_INSET}px`,
+        '--hud-right-inset': `${isWide ? RIGHT_INSET.wide : RIGHT_INSET.compact}px`,
       } as CSSProperties}
     >
       <MapCanvas pins={mockMapPins} />
@@ -66,31 +74,28 @@ function HudShellInner() {
           </div>
         </>
       ) : (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 2,
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 8,
-            paddingTop: 8,
-            paddingLeft: 8,
-            paddingRight: 8,
-          }}
-        >
-          <ConditionCluster compact />
+        <>
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 2,
+              padding: 8,
+            }}
+          >
+            <ConditionCluster compact />
+          </div>
           <QuickNav currentId={currentId} />
-        </div>
+        </>
       )}
 
-      <div style={{ position: 'absolute', right: 20, bottom: 132 }}>
-        <HudIconButton icon="map-pinned" label="Map notes" onClick={() => setAnnotationsOpen(true)} />
-      </div>
+      {(isWide || !isModalOpen) && (
+        <div style={{ position: 'absolute', right: 20, bottom: 'calc(var(--hud-hotbar-inset) + 12px)' }}>
+          <HudIconButton icon="map-pinned" label="Map notes" onClick={() => setAnnotationsOpen(true)} />
+        </div>
+      )}
 
       <Outlet />
 

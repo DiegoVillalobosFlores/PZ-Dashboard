@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 import { EquipTile } from './EquipTile';
 import { GlassPanel } from './GlassPanel';
 import { sendAction, useGameSubscription } from '../lib/gameSocket';
@@ -36,9 +36,14 @@ export function FloatingHotbar({
   const tile = compact ? 52 : 64;
 
   useLayoutEffect(() => {
+    // Mobile always lays tiles out in a single scrollable row - see the
+    // dedicated branch below - so the natural-width measurement below only
+    // matters for the wide layout's 1-vs-2-row decision.
+    if (isMobile) return;
+
     const root = rootRef.current;
     if (!root || groups.length === 0) {
-      setMaxRows(forcedSingleRow ? 1 : (isMobile ? MAX_ROWS_ROOMY : MAX_ROWS_ROOMY));
+      setMaxRows(MAX_ROWS_ROOMY);
       return;
     }
 
@@ -54,13 +59,7 @@ export function FloatingHotbar({
         if (i > 0) total += groupGap;
       });
 
-      if (forcedSingleRow) {
-        setMaxRows(1);
-      } else if (isMobile) {
-        setMaxRows(MAX_ROWS_ROOMY);
-      } else {
-        setMaxRows(total > budget ? 1 : MAX_ROWS_ROOMY);
-      }
+      setMaxRows(forcedSingleRow || total > budget ? 1 : MAX_ROWS_ROOMY);
     };
 
     measure();
@@ -76,6 +75,71 @@ export function FloatingHotbar({
 
   if (groups.length === 0) return null;
 
+  // Mobile: every group shares one glass strip instead of a separate panel
+  // each - three headers plus three double-height tile columns was the
+  // single biggest chunk of vertical space the mobile HUD gave up. A single
+  // row of tiles per group, divided by hairlines rather than full panels,
+  // cuts that roughly in half and scrolls horizontally if it overflows.
+  if (isMobile) {
+    return (
+      <div
+        ref={rootRef}
+        style={{
+          width: '100%',
+          pointerEvents: 'auto',
+          overflowX: 'auto',
+        }}
+      >
+        <GlassPanel
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'stretch',
+            padding: '4px 6px',
+            width: 'max-content',
+            minWidth: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
+          {groups.map((group, i) => (
+            <Fragment key={group.id}>
+              {i > 0 && (
+                <span
+                  style={{
+                    width: 1,
+                    alignSelf: 'stretch',
+                    background: 'var(--color-border-default)',
+                    opacity: 0.5,
+                    margin: '0 4px',
+                  }}
+                />
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <span
+                  className="pz-label"
+                  style={{
+                    fontSize: 8,
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    color: 'var(--color-text-tertiary)',
+                  }}
+                >
+                  {group.label}
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'row', gap: 0 }}>
+                  {group.slots.map((slot) => (
+                    <EquipTile key={slot.id} slot={slot} variant="hotbar" wide={false} onClick={() => equip(slot)} />
+                  ))}
+                </div>
+              </div>
+            </Fragment>
+          ))}
+        </GlassPanel>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={rootRef}
@@ -84,8 +148,8 @@ export function FloatingHotbar({
         flexDirection: 'row',
         flexWrap: 'nowrap',
         alignItems: 'flex-start',
-        justifyContent: isMobile ? 'stretch' : 'center',
-        width: isMobile ? '100%' : 'auto',
+        justifyContent: 'center',
+        width: 'auto',
         maxWidth: '100%',
         gap: groupGap,
         pointerEvents: 'auto',
@@ -101,8 +165,7 @@ export function FloatingHotbar({
             alignItems: 'center',
             gap: compact ? 6 : 8,
             padding: pad,
-            flex: isMobile ? '1 1 auto' : '0 0 auto',
-            minWidth: isMobile ? 0 : undefined,
+            flex: '0 0 auto',
           }}
         >
           <span
@@ -124,15 +187,12 @@ export function FloatingHotbar({
               flexWrap: 'nowrap',
               alignItems: 'flex-start',
               gap,
-              width: isMobile ? '100%' : 'auto',
-              justifyContent: isMobile ? 'space-between' : 'flex-start',
+              width: 'auto',
+              justifyContent: 'flex-start',
             }}
           >
             {columnsOf(group.slots, maxRows).map((column) => (
-              <div
-                key={column[0]!.id}
-                style={{ display: 'flex', flexDirection: 'column', gap, flex: isMobile ? '1 1 auto' : undefined }}
-              >
+              <div key={column[0]!.id} style={{ display: 'flex', flexDirection: 'column', gap }}>
                 {column.map((slot) => (
                   <EquipTile
                     key={slot.id}

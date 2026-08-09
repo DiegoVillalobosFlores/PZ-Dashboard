@@ -163,6 +163,7 @@ export function SkillsPanel({
       style={{
         width: compact ? '100%' : 1370,
         maxWidth: '100%',
+        height: compact ? '100%' : 'auto',
         maxHeight: '100%',
         boxSizing: 'border-box',
         display: 'flex',
@@ -172,7 +173,7 @@ export function SkillsPanel({
       }}
     >
       {header}
-      <div style={{ minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ flex: compact ? '1 1 0' : '0 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {categories.length === 0 && emptyMessage && (
           <div style={{ padding: '24px 0', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
             {emptyMessage}

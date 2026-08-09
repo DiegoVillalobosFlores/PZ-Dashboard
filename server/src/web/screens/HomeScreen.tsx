@@ -4,6 +4,7 @@ import { HandEquipmentWidget } from '../components/HandEquipmentWidget';
 import { SelectionDrawer } from '../components/SelectionDrawer';
 import { sendAction, useGameSubscription } from '../lib/gameSocket';
 import { handCandidates, type EquipSlotState, type SelectableItem } from '../lib/equipment';
+import { playerContainer } from '../lib/containers';
 
 export function HomeScreen() {
   const isWide = useMediaQuery('(min-width: 900px)');
@@ -12,10 +13,11 @@ export function HomeScreen() {
   // mod (see HandEquipmentWidget) — the only local state here is the drawer.
   const [activeHand, setActiveHand] = useState<EquipSlotState | null>(null);
 
-  const inventory = useGameSubscription('inventory', (msg) =>
-    msg.category === 'inventory' ? msg.data : undefined,
+  const containers = useGameSubscription('containers', (msg) =>
+    msg.category === 'containers' ? msg.data : undefined,
   );
-  const candidates = handCandidates(inventory ?? null, activeHand?.itemType);
+  const inventory = playerContainer(containers);
+  const candidates = handCandidates(inventory, activeHand?.itemType);
 
   function handleSelect(item: SelectableItem) {
     // Equipping is a timed action in-game, so the widget won't update on
