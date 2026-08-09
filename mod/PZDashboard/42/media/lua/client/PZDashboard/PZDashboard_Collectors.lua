@@ -1,38 +1,10 @@
 PZDashboard = PZDashboard or {}
 PZDashboard.Collectors = {}
 
--- Runs fn and returns its result, or `default` if fn errors. Used per-field
--- (rather than wrapping the whole collector) so one renamed/missing getter
--- degrades a single field instead of losing the entire category snapshot.
--- Prints the real pcall error message (label identifies which getter) since
--- the engine's own exception dump for these doesn't include one.
-local function safe(fn, default, label)
-    local ok, result = pcall(fn)
-    if ok then
-        if result == nil then return default end
-        return result
-    end
-    print("[PZDashboard] " .. tostring(label) .. " failed: " .. tostring(result))
-    return default
-end
+local safe = PZDashboard.Util.safe
+local trackedVehicles = {}
 
--- The category the game itself files an item under in its inventory window:
--- the DisplayCategory from the item script when it sets one, falling back to
--- the engine's own getCategory(), then run through the same IGUI_ItemCat_*
--- translation keys the vanilla pane uses (ISInventoryPane.lua ~L2530, and
--- the identical `getDisplayCategory() or getCategory()` pair at ~L2160).
--- Returns both the raw id and the player-facing label: the id is a stable
--- grouping key across languages, the label is what the dashboard prints.
--- getTextOrNull rather than getText so a category with no translation shows
--- its id instead of a raw "IGUI_ItemCat_..." key.
-local function itemCategory(item, label)
-    local raw = safe(function() return item:getDisplayCategory() end, nil, label .. ".displayCategory")
-    if not raw or raw == "" then
-        raw = safe(function() return item:getCategory() end, "", label .. ".category")
-    end
-    if raw == "" then return "", "" end
-    return raw, (getTextOrNull("IGUI_ItemCat_" .. raw) or raw)
-end
+local itemCategory = PZDashboard.Util.itemCategory
 
 -- One shape for every item the dashboard shows in an equipment slot - hand
 -- items, hotbar attachments and worn clothing all go through this, so the
@@ -101,6 +73,52 @@ function PZDashboard.Collectors.map(player)
         inVehicle = safe(function() return player:getVehicle() ~= nil end, false, "map.inVehicle"),
     }
 end
+function PZDashboard.Collectors.vehicles(player)
+    for _, tracked in pairs(trackedVehicles) do
+        tracked.current = false
+    end
+
+    local vehicle = safe(function() return player:getVehicle() end, nil, "vehicles.current")
+    if vehicle then
+        local id = safe(function() return vehicle:getId() end, nil, "vehicles.id")
+        if id ~= nil then
+            local x = safe(function() return vehicle:getX() end, nil, "vehicles.x")
+            local y = safe(function() return vehicle:getY() end, nil, "vehicles.y")
+            local z = safe(function() return vehicle:getZ() end, nil, "vehicles.z")
+            local tracked = trackedVehicles[id]
+
+            if tracked then
+                if x ~= nil then tracked.x = x end
+                if y ~= nil then tracked.y = y end
+                if z ~= nil then tracked.z = z end
+            elseif x ~= nil and y ~= nil and z ~= nil then
+                tracked = {
+                    id = id,
+                    name = "Vehicle",
+                    x = x,
+                    y = y,
+                    z = z,
+                    current = false,
+                }
+                trackedVehicles[id] = tracked
+            end
+
+            if tracked then
+                local scriptName = safe(function() return vehicle:getScriptName() end, "", "vehicles.scriptName")
+                if scriptName ~= "" then tracked.name = scriptName end
+                tracked.current = true
+            end
+        end
+    end
+
+    local vehicles = {}
+    for _, tracked in pairs(trackedVehicles) do
+        table.insert(vehicles, tracked)
+    end
+    table.sort(vehicles, function(a, b) return a.id < b.id end)
+    return { vehicles = vehicles }
+end
+
 
 -- The world map's player-placed symbols/notes live behind UIWorldMap's Java
 -- API (mapAPI:getSymbolsAPIv2()), which is only reachable through a
@@ -159,207 +177,39 @@ function PZDashboard.Collectors.annotations(player)
     return { markers = markers }
 end
 
-function PZDashboard.Collectors.inventory(player)
-    local inv = player:getInventory()
-    local itemList = inv:getItems()
-    local items = {}
-    for i = 0, itemList:size() - 1 do
-        local item = itemList:get(i)
-        local displayCategory, categoryLabel = itemCategory(item, "inventory.item")
-        table.insert(items, {
-            name = safe(function() return item:getDisplayName() end, "", "inventory.item.name"),
-            type = safe(function() return item:getFullType() end, "", "inventory.item.type"),
-            count = safe(function() return item:getCount() end, 1, "inventory.item.count"),
-            condition = safe(function() return item:getCondition() end, -1, "inventory.item.condition"),
-            -- Condition only means anything next to the item's own max (a
-            -- knife tops out at 10, a shirt at 40) - the equip drawers grade
-            -- items by the ratio of the two.
-            conditionMax = safe(function() return item:getConditionMax() end, -1, "inventory.item.conditionMax"),
-            weight = safe(function() return item:getActualWeight() end, 0, "inventory.item.weight"),
-            -- Matches ISInventoryPane.lua's own icon lookup (item:getTex()) so
-            -- the name lines up with the "Item_*" subtexture names baked into
-            -- media/texturepacks/UI.pack / UI2.pack.
-            icon = safe(function() return item:getTex():getName() end, "", "inventory.item.icon"),
-            -- "Weapon"/"Clothing"/"Item"/... - lets the dashboard's equip
-            -- drawers offer only items that can go in the slot being filled.
-            -- Deliberately the engine category and not the display one below:
-            -- this is a behavioral filter, so it wants the coarse, stable
-            -- bucket rather than the finer one item scripts can retitle.
-            category = safe(function() return item:getCategory() end, "", "inventory.item.category"),
-            -- What the game's own inventory window files this item under -
-            -- the dashboard groups its item lists by it. See itemCategory().
-            displayCategory = displayCategory,
-            categoryLabel = categoryLabel,
-            -- Empty for anything that isn't clothing; for clothing it's the
-            -- ItemBodyLocation this item would occupy if worn, which is how
-            -- the equipment drawer knows a hat belongs to the head slot.
-            bodyLocation = safe(function() return item:getBodyLocation() end, "", "inventory.item.bodyLocation"),
-        })
-    end
-    return {
-        weight = safe(function() return inv:getCapacityWeight() end, 0, "inventory.weight"),
-        capacity = safe(function() return inv:getCapacity() end, 0, "inventory.capacity"),
-        items = items,
-    }
-end
-
--- Matches the vanilla auto-loot window's range (ISInventoryPage.lua): the
--- 3x3 block of squares centered on the player, same z-level only.
-local NEARBY_CONTAINER_RADIUS = 1
-
-local function nearbyContainerItems(container)
-    local items = {}
-    local itemList = safe(function() return container:getItems() end, nil, "nearbyContainers.container.items")
-    if not itemList then return items end
-    for i = 0, itemList:size() - 1 do
-        local item = itemList:get(i)
-        local displayCategory, categoryLabel = itemCategory(item, "nearbyContainers.item")
-        table.insert(items, {
-            name = safe(function() return item:getDisplayName() end, "", "nearbyContainers.item.name"),
-            type = safe(function() return item:getFullType() end, "", "nearbyContainers.item.type"),
-            count = safe(function() return item:getCount() end, 1, "nearbyContainers.item.count"),
-            condition = safe(function() return item:getCondition() end, -1, "nearbyContainers.item.condition"),
-            weight = safe(function() return item:getActualWeight() end, 0, "nearbyContainers.item.weight"),
-            -- Same in-game category the player inventory reports, so a
-            -- container's contents group the way the Inventory screen does.
-            displayCategory = displayCategory,
-            categoryLabel = categoryLabel,
-        })
-    end
-    return items
-end
-
--- Mirrors the container title lookup ISInventoryPage.lua uses for its loot
--- window buttons, so names match what the player sees in-game (falls back
--- to the raw type string for containers without an IGUI_ContainerTitle_
--- translation).
-local function nearbyContainerName(container)
-    -- getCustomName() reads the parent world object's mod data, so it throws
-    -- an NPE on a container that has no parent - which is exactly what a bag
-    -- dropped on the floor is, its container being backed by an item instead.
-    -- Vanilla sidesteps this the same way: it only calls getCustomName() on
-    -- the getObjects() containers (ISInventoryPage.lua ~L1740) and names
-    -- item-backed ones after the item itself (~L1701).
-    local item = safe(function() return container:getContainingItem() end, nil, "nearbyContainers.container.containingItem")
-    if item then
-        local itemName = safe(function() return item:getName() end, "", "nearbyContainers.container.itemName")
-        if itemName ~= "" then return itemName end
-    elseif safe(function() return container:getParent() ~= nil end, false, "nearbyContainers.container.parent") then
-        local custom = safe(function() return container:getCustomName() end, nil, "nearbyContainers.container.customName")
-        if custom and custom ~= "" then return custom end
-    end
-    local containerType = safe(function() return container:getType() end, "", "nearbyContainers.container.type")
-    local translated = getTextOrNull("IGUI_ContainerTitle_" .. containerType)
-    return translated or containerType
-end
-
-local function describeNearbyContainer(container, kind, square, locked)
-    return {
-        kind = kind,
-        type = safe(function() return container:getType() end, "", "nearbyContainers.container.type"),
-        name = nearbyContainerName(container),
-        x = safe(function() return square:getX() end, 0, "nearbyContainers.container.x"),
-        y = safe(function() return square:getY() end, 0, "nearbyContainers.container.y"),
-        z = safe(function() return square:getZ() end, 0, "nearbyContainers.container.z"),
-        locked = locked or false,
-        weight = safe(function() return container:getCapacityWeight() end, 0, "nearbyContainers.container.weight"),
-        capacity = safe(function() return container:getCapacity() end, 0, "nearbyContainers.container.capacity"),
-        items = nearbyContainerItems(container),
-    }
-end
-
--- Scans the 3x3 squares around the player the same way the vanilla loot
--- window does (ISInventoryPage.lua ~L1630-1750): dead bodies/other
--- static-moving objects via getContainer(), world objects (fridges,
--- crates, lockers - anything with getContainerCount() > 0) via
--- getContainerByIndex(), and bags dropped on the floor via
--- getWorldObjects(). Reuses the same canReachTo() line-of-sight check so
--- containers on the far side of a wall aren't listed as reachable.
-function PZDashboard.Collectors.nearbyContainers(player)
+-- Every reachable container in one payload: the player's own inventory, the
+-- bags they carry, the crates/corpses/dropped bags within the vanilla loot
+-- radius, and the ground. Identity lives in PZDashboard_Containers so that
+-- the ids the dashboard sends back to moveItems resolve against exactly the
+-- enumeration that produced them.
+function PZDashboard.Collectors.containers(player)
+    local records = PZDashboard.Containers.enumerate(player)
     local containers = {}
-    local px = safe(function() return player:getX() end, 0, "nearbyContainers.player.x")
-    local py = safe(function() return player:getY() end, 0, "nearbyContainers.player.y")
-    local pz = safe(function() return player:getZ() end, 0, "nearbyContainers.player.z")
-    local cell = getCell()
-    local currentSq = safe(function() return player:getCurrentSquare() end, nil, "nearbyContainers.player.currentSquare")
-
-    for dy = -NEARBY_CONTAINER_RADIUS, NEARBY_CONTAINER_RADIUS do
-        for dx = -NEARBY_CONTAINER_RADIUS, NEARBY_CONTAINER_RADIUS do
-            local square = safe(function() return cell:getGridSquare(px + dx, py + dy, pz) end, nil, "nearbyContainers.square")
-            local reachable = square and (square == currentSq or not currentSq or currentSq:canReachTo(square))
-            if reachable then
-                local staticMoving = safe(function() return square:getStaticMovingObjects() end, nil, "nearbyContainers.staticMovingObjects")
-                if staticMoving then
-                    for i = 0, staticMoving:size() - 1 do
-                        local so = staticMoving:get(i)
-                        local container = safe(function() return so:getContainer() end, nil, "nearbyContainers.staticMoving.container")
-                        if container then
-                            local isDeadBody = safe(function() return instanceof(so, "IsoDeadBody") end, false, "nearbyContainers.staticMoving.isDeadBody")
-                            table.insert(containers, describeNearbyContainer(container, isDeadBody and "deadBody" or "object", square, false))
-                        end
-                    end
-                end
-
-                local objects = safe(function() return square:getObjects() end, nil, "nearbyContainers.objects")
-                if objects then
-                    for i = 0, objects:size() - 1 do
-                        local obj = objects:get(i)
-                        local containerCount = safe(function() return obj:getContainerCount() end, 0, "nearbyContainers.object.containerCount")
-                        if containerCount and containerCount > 0 then
-                            local locked = safe(function() return instanceof(obj, "IsoThumpable") and obj:isLockedToCharacter(player) end, false, "nearbyContainers.object.locked")
-                            for ci = 0, containerCount - 1 do
-                                local container = safe(function() return obj:getContainerByIndex(ci) end, nil, "nearbyContainers.object.container")
-                                if container then
-                                    table.insert(containers, describeNearbyContainer(container, "object", square, locked))
-                                end
-                            end
-                        end
-                    end
-                end
-
-                local worldObjects = safe(function() return square:getWorldObjects() end, nil, "nearbyContainers.worldObjects")
-                if worldObjects then
-                    for i = 0, worldObjects:size() - 1 do
-                        local item = safe(function() return worldObjects:get(i):getItem() end, nil, "nearbyContainers.worldObject.item")
-                        local category = item and safe(function() return item:getCategory() end, "", "nearbyContainers.worldObject.category")
-                        if category == "Container" then
-                            local container = safe(function() return item:getInventory() end, nil, "nearbyContainers.worldObject.inventory")
-                            if container then
-                                table.insert(containers, describeNearbyContainer(container, "floorBag", square, false))
-                            end
-                        end
-                    end
-                end
-            end
-        end
+    for _, entry in ipairs(records) do
+        table.insert(containers, {
+            id = entry.id,
+            kind = entry.kind,
+            name = entry.name,
+            type = entry.type,
+            icon = entry.icon or "",
+            x = entry.x,
+            y = entry.y,
+            z = entry.z,
+            locked = entry.locked,
+            weight = entry.container and safe(function() return entry.container:getCapacityWeight() end, 0, "containers.weight") or 0,
+            -- getCapacity(), not getEffectiveCapacity(): this is the number the
+            -- engine's own room check compares against
+            -- (ISInventoryTransferAction.lua:889), so the dashboard's "no room"
+            -- prediction matches the verdict the transfer will reach. The floor
+            -- has no capacity at all and reports -1.
+            capacity = entry.container and safe(function() return entry.container:getCapacity() end, -1, "containers.capacity") or -1,
+            items = PZDashboard.Containers.itemsOf(entry, "containers.item"),
+        })
     end
-
-    -- Flat merge of every nearby container's items by item type, since the
-    -- dashboard's use case ("what's available near me") cares about total
-    -- availability more than which specific container holds it.
-    local combinedByType = {}
-    local combined = {}
-    for _, container in ipairs(containers) do
-        for _, item in ipairs(container.items) do
-            local entry = combinedByType[item.type]
-            if not entry then
-                entry = {
-                    type = item.type,
-                    name = item.name,
-                    count = 0,
-                    weight = 0,
-                    displayCategory = item.displayCategory,
-                    categoryLabel = item.categoryLabel,
-                }
-                combinedByType[item.type] = entry
-                table.insert(combined, entry)
-            end
-            entry.count = entry.count + item.count
-            entry.weight = entry.weight + item.weight
-        end
-    end
-
-    return { containers = containers, combined = combined }
+    -- Only the fields above ever reach the writer: an enumeration record also
+    -- carries the live ItemContainer and, for the floor, a map of world
+    -- objects - Java userdata that Json.Encode would turn into null.
+    return { containers = containers }
 end
 
 -- PZ's skill ceiling; getTotalXpForLevel() has no defined answer past it.

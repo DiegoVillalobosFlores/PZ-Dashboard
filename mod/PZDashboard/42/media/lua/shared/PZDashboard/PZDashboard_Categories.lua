@@ -10,9 +10,12 @@ PZDashboard.Categories = {
     -- track the player continuously, so it runs at the slider's floor (0.5s)
     -- rather than the 1s used for stats that only drift slowly.
     { id = "map",       optionName = "MapEnabled",       intervalOption = "MapInterval",       defaultInterval = 0.5, maxInterval = 30, label = "Map Position" },
+    { id = "vehicles", optionName = "VehiclesEnabled", intervalOption = "VehiclesInterval", defaultInterval = 2.0, maxInterval = 60, label = "Tracked Vehicles" },
     { id = "annotations", optionName = "AnnotationsEnabled", intervalOption = "AnnotationsInterval", defaultInterval = 5.0, maxInterval = 60, label = "Map Annotations" },
-    { id = "inventory", optionName = "InventoryEnabled", intervalOption = "InventoryInterval", defaultInterval = 3.0, maxInterval = 60, label = "Inventory" },
-    { id = "nearbyContainers", optionName = "NearbyContainersEnabled", intervalOption = "NearbyContainersInterval", defaultInterval = 3.0, maxInterval = 60, label = "Nearby Containers" },
+    -- Every reachable container in one payload, and the feedback channel for
+    -- a move the dashboard just queued - transfers are timed actions, so the
+    -- outcome only shows up on the next snapshot.
+    { id = "containers", optionName = "ContainersEnabled", intervalOption = "ContainersInterval", defaultInterval = 2.0, maxInterval = 60, label = "Containers" },
     { id = "skills",    optionName = "SkillsEnabled",    intervalOption = "SkillsInterval",    defaultInterval = 5.0, maxInterval = 60, label = "Skills" },
     { id = "toolbar",   optionName = "ToolbarEnabled",   intervalOption = "ToolbarInterval",    defaultInterval = 1.0, maxInterval = 30, label = "Toolbar" },
     -- Same 1s cadence as the toolbar: both back the same equipment tiles in

@@ -20,7 +20,8 @@ export interface StatusSnapshot {
   bleeding: boolean;
 }
 
-export interface InventoryItemSnapshot {
+export interface ContainerItemSnapshot {
+  id: number; // InventoryItem:getID() — the handle every move command sends back
   name: string;
   type: string;
   count: number;
@@ -34,10 +35,28 @@ export interface InventoryItemSnapshot {
   bodyLocation: string; // ItemBodyLocation this would occupy if worn; "" for non-clothing
 }
 
-export interface InventorySnapshot {
+export type ContainerKind = 'player' | 'bag' | 'object' | 'deadBody' | 'floorBag' | 'floor';
+
+// One reachable container. `id` is opaque to the frontend and round-trips
+// straight back to the mod's moveItems action, which resolves it against the
+// same enumeration that produced it.
+export interface ContainerSnapshot {
+  id: string;
+  kind: ContainerKind;
+  name: string;
+  type: string;
+  icon: string;
+  x: number;
+  y: number;
+  z: number;
+  locked: boolean;
   weight: number;
-  capacity: number;
-  items: InventoryItemSnapshot[];
+  capacity: number; // -1 on the floor, which has no capacity at all
+  items: ContainerItemSnapshot[];
+}
+
+export interface ContainersSnapshot {
+  containers: ContainerSnapshot[];
 }
 
 // One shape for every equipped item, whichever slot holds it — see
@@ -81,43 +100,6 @@ export interface SkillsSnapshot {
   perks: SkillPerkSnapshot[];
 }
 
-export interface NearbyContainerItemSnapshot {
-  name: string;
-  type: string;
-  count: number;
-  condition: number;
-  weight: number;
-  displayCategory: string;
-  categoryLabel: string;
-}
-
-export interface NearbyContainerSnapshot {
-  kind: 'object' | 'deadBody' | 'floorBag';
-  type: string;
-  name: string;
-  x: number;
-  y: number;
-  z: number;
-  locked: boolean;
-  weight: number;
-  capacity: number;
-  items: NearbyContainerItemSnapshot[];
-}
-
-export interface NearbyContainerCombinedItemSnapshot {
-  type: string;
-  name: string;
-  count: number;
-  weight: number;
-  displayCategory: string;
-  categoryLabel: string;
-}
-
-export interface NearbyContainersSnapshot {
-  containers: NearbyContainerSnapshot[];
-  combined: NearbyContainerCombinedItemSnapshot[];
-}
-
 export interface ManifestEntry {
   enabled: boolean;
   updatedAtMs?: number;
@@ -138,6 +120,19 @@ export interface MapSnapshot {
   safehouse: boolean;
   inVehicle: boolean;
 }
+export interface VehicleSnapshot {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  current: boolean;
+}
+
+export interface VehiclesSnapshot {
+  vehicles: VehicleSnapshot[];
+}
+
 
 // Only the player's own hand-placed map markers/notes (mod filters out the
 // map's built-in default annotations via symbol:isUserDefined()) - see
@@ -186,8 +181,7 @@ export interface AppearanceSnapshot {
 export interface CategoryMap {
   appearance: AppearanceSnapshot;
   status: StatusSnapshot;
-  inventory: InventorySnapshot;
-  nearbyContainers: NearbyContainersSnapshot;
+  containers: ContainersSnapshot;
   toolbar: ToolbarSnapshot;
   equipment: EquipmentSnapshot;
   skills: SkillsSnapshot;
@@ -195,4 +189,5 @@ export interface CategoryMap {
   commandResult: CommandResultSnapshot;
   map: MapSnapshot;
   annotations: AnnotationsSnapshot;
+  vehicles: VehiclesSnapshot;
 }

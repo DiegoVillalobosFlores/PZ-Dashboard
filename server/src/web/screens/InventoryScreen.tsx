@@ -1,150 +1,351 @@
+import { useEffect, useRef, useState } from 'react';
 import { useMediaQuery } from '@mantine/hooks';
+import { ContainerPane } from '../components/ContainerPane';
+import { ContainerPickerDrawer } from '../components/ContainerPickerDrawer';
 import { GlassPanel } from '../components/GlassPanel';
-import { ItemIcon } from '../components/ItemIcon';
+import { Icon } from '../components/Icon';
 import { ScreenModal } from '../components/ScreenModal';
 import { sendAction, useGameConnection, useGameSubscription } from '../lib/gameSocket';
-import { groupByItemCategory } from '../lib/itemCategories';
-import type { InventoryItemSnapshot } from '../lib/liveTypes';
+import { containerById, containerIcon, playerContainer, selectionWeight } from '../lib/containers';
+import type { ContainerSnapshot } from '../lib/liveTypes';
 
-function InventoryRow({ item, onDrop }: { item: InventoryItemSnapshot; onDrop: () => void }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '10px 12px',
-        borderBottom: '1px solid rgba(255,255,255,0.04)',
-      }}
-    >
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'var(--color-bg-row)',
-        }}
-      >
-        <ItemIcon icon={item.icon} name={item.name} type={item.type} size={28} color="var(--color-text-secondary)" />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>
-          {item.name}
-          {item.count > 1 ? ` ×${item.count}` : ''}
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
-          {item.weight.toFixed(1)} kg · condition {Math.round(item.condition)}
-        </div>
-      </div>
-      <button
-        onClick={onDrop}
-        style={{
-          background: 'none',
-          border: '1px solid rgba(255,255,255,0.14)',
-          color: 'var(--color-text-secondary)',
-          fontSize: 10,
-          letterSpacing: '0.06em',
-          padding: '6px 10px',
-          cursor: 'pointer',
-        }}
-        className="pz-label"
-      >
-        Drop
-      </button>
-    </div>
-  );
+interface Selection {
+  containerId: string;
+  ids: number[];
 }
 
-function CategoryHeading({ label, count }: { label: string; count: number }) {
-  return (
-    <div
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 1,
-        display: 'flex',
-        alignItems: 'baseline',
-        justifyContent: 'space-between',
-        gap: 8,
-        padding: '8px 12px',
-        background: 'var(--color-glass-72)',
-        backdropFilter: 'blur(8px)',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-      }}
-    >
-      <span
-        className="pz-label"
-        style={{
-          fontSize: 11,
-          fontFamily: 'var(--font-display)',
-          fontWeight: 600,
-          letterSpacing: '0.12em',
-          color: 'var(--color-text-secondary)',
-        }}
-      >
-        {label}
-      </span>
-      <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>{count}</span>
-    </div>
-  );
+// How long the "Moving N items…" readout stays up when no fresh snapshot
+// arrives to retire it — a mod that stopped streaming shouldn't leave the bar
+// stuck claiming a move is still in flight.
+const PENDING_TIMEOUT_MS = 8000;
+const ERROR_TIMEOUT_MS = 6000;
+
+function isCarried(container: ContainerSnapshot): boolean {
+  return container.kind === 'player' || container.kind === 'bag';
+}
+
+function defaultTarget(containers: ContainerSnapshot[]): ContainerSnapshot | null {
+  return containers.find((container) => container.kind !== 'floor') ?? containers[0] ?? null;
+}
+
+function moveBlocker(destination: ContainerSnapshot | null, selection: Selection, weight: number) {
+  if (!destination) return 'No target';
+  if (destination.id === selection.containerId) return 'Same container';
+  if (destination.locked) return 'Locked';
+  if (destination.capacity >= 0 && destination.weight + weight > destination.capacity) {
+    return 'No room';
+  }
+  return null;
 }
 
 export function InventoryScreen() {
   const isWide = useMediaQuery('(min-width: 900px)');
   const connected = useGameConnection();
-  const inventory = useGameSubscription('inventory', (msg) =>
-    msg.category === 'inventory' ? msg.data : undefined,
+
+  const snapshot = useGameSubscription('containers', (msg) =>
+    msg.category === 'containers' ? msg.data : undefined,
   );
-  const categories = groupByItemCategory(inventory?.items ?? []);
+  const containers = snapshot?.containers ?? [];
+  const carried = containers.filter(isCarried);
+  const nearby = containers.filter((container) => !isCarried(container));
+
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [leftId, setLeftId] = useState('player');
+  const [rightId, setRightId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pending, setPending] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // A pane whose container stopped being reported — walked away from the
+  // crate, corpse looted to nothing — silently falls back rather than going
+  // blank, since the mod re-enumerates from scratch every snapshot.
+  const left = containerById(snapshot, leftId) ?? playerContainer(snapshot);
+  const right = containerById(snapshot, rightId) ?? defaultTarget(nearby);
+
+  // The result of a move comes back on its own category, not as a reply: the
+  // mod queues a timed action and reports once it has run. The socket replays
+  // the last snapshot per category on subscribe, so the id seen first is
+  // whatever was already sitting there and is never surfaced.
+  const seenResultId = useRef<string | null>(null);
+  const commandResult = useGameSubscription('containers:commandResult', (msg) =>
+    msg.category === 'commandResult' ? msg.data : undefined,
+  );
+
+  useEffect(() => {
+    if (!commandResult) return;
+    if (seenResultId.current === null) {
+      seenResultId.current = commandResult.id;
+      return;
+    }
+    if (commandResult.id === seenResultId.current) return;
+    seenResultId.current = commandResult.id;
+    setPending(null);
+    if (!commandResult.ok) setError(commandResult.error ?? 'The game refused that move.');
+  }, [commandResult]);
+
+  useEffect(() => {
+    if (pending === null) return;
+    const timer = setTimeout(() => setPending(null), PENDING_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [pending]);
+
+  useEffect(() => {
+    if (snapshot) setPending(null);
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (error === null) return;
+    const timer = setTimeout(() => setError(null), ERROR_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [error]);
+
+  function activate(paneId: 'left' | 'right', containerId: string) {
+    setSelection(null);
+    if (paneId === 'left') setLeftId(containerId);
+    else setRightId(containerId);
+  }
+
+  function select(containerId: string, ids: number[]) {
+    setSelection(ids.length === 0 ? null : { containerId, ids });
+  }
+
+  // On the wide layout the destination is whichever pane the selection is not
+  // in, so a move never needs a separate target control.
+  const source = selection ? containerById(snapshot, selection.containerId) : null;
+  const destination = !selection
+    ? null
+    : isWide
+      ? selection.containerId === left?.id
+        ? right
+        : left
+      : right;
+  const weight = selection ? selectionWeight(source, selection.ids) : 0;
+  const blocker = selection ? moveBlocker(destination, selection, weight) : null;
+  const leftSelection = selection !== null && selection.containerId === left?.id ? selection.ids : [];
+  const rightSelection = selection !== null && selection.containerId === right?.id ? selection.ids : [];
+
+  function move() {
+    if (!selection || !destination || blocker) return;
+    sendAction('moveItems', { to: destination.id, itemIds: selection.ids });
+    setPending(selection.ids.length);
+    setSelection(null);
+  }
+
+  const status = snapshot
+    ? `${nearby.length} in range`
+    : connected
+      ? 'loading…'
+      : 'offline';
 
   return (
-    <ScreenModal contentStyle={{ width: isWide ? 480 : 340 }}>
+    <ScreenModal contentStyle={{ width: '100%', maxWidth: isWide ? 1100 : undefined }}>
       <GlassPanel
-        style={{ display: 'flex', flexDirection: 'column', width: '100%', maxHeight: '100%', minHeight: 0 }}
+        cornerBrackets={{ length: 20, thickness: 2, inset: 6, opacity: 0.85 }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          // Explicit height, not just maxHeight: the panes below need a
+          // definite box to grow into for their flex-grow/overflow-scroll to
+          // activate instead of collapsing.
+          height: '100%',
+          maxHeight: '100%',
+          minHeight: 0,
+        }}
       >
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '16px 16px 12px',
+            padding: '20px 24px 12px',
+            flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 14, letterSpacing: '0.08em', color: 'var(--color-text-primary)' }} className="pz-label">
-            Inventory
+          <span
+            className="pz-label"
+            style={{
+              fontSize: 18,
+              fontFamily: 'var(--font-display)',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            Containers
           </span>
-          <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
-            {inventory ? `${inventory.weight.toFixed(1)} / ${inventory.capacity} kg` : connected ? 'loading…' : 'offline'}
-          </span>
+          <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>{status}</span>
         </div>
-        <div style={{ overflowY: 'auto' }}>
-          {!inventory && (
-            <div style={{ padding: '24px 16px', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
-              {connected ? 'Waiting for inventory data…' : 'Not connected to the dashboard server.'}
+
+        {!snapshot && (
+          <div style={{ padding: '24px', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
+            {connected ? 'Waiting for container data…' : 'Not connected to the dashboard server.'}
+          </div>
+        )}
+
+        {snapshot && isWide && (
+          <div style={{ display: 'flex', flex: '1 1 0', minHeight: 0 }}>
+            <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}>
+              <ContainerPane
+                containers={carried}
+                active={left}
+                onActiveChange={(id) => activate('left', id)}
+                selectedIds={leftSelection}
+                onSelectionChange={select}
+                compact={false}
+              />
             </div>
-          )}
-          {inventory && categories.length === 0 && (
-            <div style={{ padding: '24px 16px', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
-              Nothing carried.
+            <div style={{ width: 1, background: 'var(--color-glass-inset)', flexShrink: 0 }} />
+            <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}>
+              <ContainerPane
+                containers={nearby}
+                active={right}
+                onActiveChange={(id) => activate('right', id)}
+                selectedIds={rightSelection}
+                onSelectionChange={select}
+                compact={false}
+              />
             </div>
-          )}
-          {categories.map((category) => (
-            <div key={category.key}>
-              <CategoryHeading label={category.label} count={category.items.length} />
-              {category.items.map((item, index) => (
-                <InventoryRow
-                  key={`${item.type}-${index}`}
-                  item={item}
-                  onDrop={() => sendAction('dropItem', { itemType: item.type })}
-                />
-              ))}
+          </div>
+        )}
+
+        {snapshot && !isWide && (
+          <>
+            <div style={{ display: 'flex', flex: '1 1 0', minHeight: 0 }}>
+              <ContainerPane
+                containers={carried}
+                active={left}
+                onActiveChange={(id) => activate('left', id)}
+                selectedIds={leftSelection}
+                onSelectionChange={select}
+                compact
+              />
             </div>
-          ))}
-        </div>
+            <button
+              onClick={() => setPickerOpen(true)}
+              style={{
+                height: 48,
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 24px',
+                cursor: 'pointer',
+                background: 'transparent',
+                borderLeft: 'none',
+                borderRight: 'none',
+                borderBottom: 'none',
+                borderTop: '1px solid var(--color-glass-inset)',
+              }}
+            >
+              <span
+                className="pz-label"
+                style={{ fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-text-tertiary)' }}
+              >
+                Move to
+              </span>
+              <span
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 13,
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                {right && <Icon name={containerIcon(right.kind)} size={16} color="var(--color-text-secondary)" />}
+                {right?.name ?? 'Nothing in range'}
+              </span>
+            </button>
+          </>
+        )}
+
+        {error && (
+          <div
+            style={{
+              padding: '8px 24px',
+              fontSize: 12,
+              color: 'var(--color-danger)',
+              flexShrink: 0,
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {(selection || pending !== null) && (
+          <div
+            style={{
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              padding: '12px 24px',
+              borderTop: '1px solid var(--color-glass-inset)',
+            }}
+          >
+            {pending !== null ? (
+              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                Moving {pending} item{pending === 1 ? '' : 's'}…
+              </span>
+            ) : (
+              <>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                  {selection?.ids.length} selected · {weight.toFixed(1)} kg
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button
+                    onClick={() => setSelection(null)}
+                    style={{
+                      height: 44,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      color: 'var(--color-text-tertiary)',
+                    }}
+                    className="pz-label"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={move}
+                    disabled={blocker !== null}
+                    className="pz-label"
+                    style={{
+                      height: 48,
+                      minWidth: 150,
+                      padding: '0 16px',
+                      cursor: blocker ? 'default' : 'pointer',
+                      fontSize: 12,
+                      letterSpacing: '0.06em',
+                      borderRadius: 'var(--radius-sharp)',
+                      color: blocker ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)',
+                      background: blocker
+                        ? 'var(--color-slot-empty-fill)'
+                        : 'var(--color-accent-fill-medium)',
+                      border: blocker
+                        ? '1px solid var(--color-slot-empty-border)'
+                        : '1px solid var(--color-accent-border-strong)',
+                    }}
+                  >
+                    {blocker ?? `Move → ${destination?.name ?? ''}`}
+                  </button>
+                </span>
+              </>
+            )}
+          </div>
+        )}
       </GlassPanel>
+
+      <ContainerPickerDrawer
+        opened={pickerOpen && !isWide}
+        onClose={() => setPickerOpen(false)}
+        containers={nearby}
+        selectedId={right?.id ?? null}
+        onSelect={(id) => activate('right', id)}
+      />
     </ScreenModal>
   );
 }

@@ -10,17 +10,19 @@ import {
   type PaperdollSlotId,
   type SelectableItem,
 } from '../lib/equipment';
+import { playerContainer } from '../lib/containers';
 
 export function HealthScreen() {
   const isWide = useMediaQuery('(min-width: 900px)');
 
   const [activeSlot, setActiveSlot] = useState<EquipSlotState | null>(null);
 
-  const inventory = useGameSubscription('inventory', (msg) =>
-    msg.category === 'inventory' ? msg.data : undefined,
+  const containers = useGameSubscription('containers', (msg) =>
+    msg.category === 'containers' ? msg.data : undefined,
   );
+  const inventory = playerContainer(containers);
   const candidates = activeSlot
-    ? wearCandidates(inventory ?? null, activeSlot.id as PaperdollSlotId, activeSlot.itemType)
+    ? wearCandidates(inventory, activeSlot.id as PaperdollSlotId, activeSlot.itemType)
     : [];
 
   function handleSelect(item: SelectableItem) {

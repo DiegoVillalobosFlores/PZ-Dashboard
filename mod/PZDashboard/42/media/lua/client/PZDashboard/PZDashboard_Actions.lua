@@ -1,3 +1,6 @@
+require "TimedActions/ISInventoryTransferUtil"
+require "PZDashboard/PZDashboard_Containers"
+
 PZDashboard = PZDashboard or {}
 PZDashboard.Actions = {}
 
@@ -28,16 +31,146 @@ function PZDashboard.Actions.ping(player, params)
     return true
 end
 
--- Drops the first inventory item matching params.itemType (e.g.
--- "Base.Screwdriver") on the ground. Delegates to the same vanilla
--- context-menu function the in-game "Drop" option uses, rather than
--- reimplementing equip/vehicle/lit-item handling ourselves.
-function PZDashboard.Actions.dropItem(player, params)
-    local item = findItemByType(player, params.itemType)
-    if not item then
-        return false, "item not found: " .. tostring(params.itemType)
+-- Moves a batch of items into one container. Containers and items are both
+-- addressed by the ids PZDashboard_Containers.enumerate() hands out, and this
+-- re-runs that same enumeration and searches it rather than parsing an id
+-- back into a square/object - so an id can only ever name a container the mod
+-- itself described, and a stale one resolves to nothing instead of to the
+-- wrong crate.
+--
+-- Everything is queued through the vanilla transfer action, one action per
+-- InventoryItem: there is no bulk API, and ISInventoryTransferAction merges
+-- adjacent same-source/same-destination actions back together itself.
+local function moveError(message)
+    return false, message
+end
+
+function PZDashboard.Actions.moveItems(player, params)
+    local destinationId = params.to
+    local itemIds = params.itemIds
+    if type(destinationId) ~= "string" or type(itemIds) ~= "table" or #itemIds == 0 then
+        return moveError("moveItems: expected { to = <containerId>, itemIds = { <n>, ... } }")
     end
-    ISInventoryPaneContextMenu.dropItem(item, player:getPlayerNum())
+
+    local records = PZDashboard.Containers.enumerate(player)
+
+    local destination = nil
+    for _, entry in ipairs(records) do
+        if entry.id == destinationId then destination = entry break end
+    end
+    if not destination then
+        return moveError("destination container not found: " .. destinationId)
+    end
+    if destination.locked then
+        return moveError(destination.name .. " is locked")
+    end
+
+    -- Ids come off the wire as JSON numbers and Json.Decode yields Lua
+    -- numbers, so this compares numerically - tostring() on a Kahlua double
+    -- can render an integer id as "12345.0" and never match.
+    local located = {}
+    for _, entry in ipairs(records) do
+        if entry.floorItems then
+            for _, floorEntry in ipairs(entry.floorItems) do
+                located[floorEntry.item:getID()] = { item = floorEntry.item, record = entry }
+            end
+        elseif entry.container then
+            local items = entry.container:getItems()
+            for i = 0, items:size() - 1 do
+                local item = items:get(i)
+                located[item:getID()] = { item = item, record = entry }
+            end
+        end
+    end
+
+    local moves = {}
+    for _, itemId in ipairs(itemIds) do
+        local found = located[itemId]
+        if found and found.record.id ~= destination.id then
+            table.insert(moves, found)
+        end
+    end
+    if #moves == 0 then
+        return moveError("none of those items are still there")
+    end
+
+    -- Same gate javaTransferItems() applies (ISInventoryTransferAction.lua:889),
+    -- run against a projected weight: getCapacityWeight() will not move until
+    -- the queued transfers actually complete, so checking every item against
+    -- the container's current weight would wave a whole overweight batch through.
+    local admitted = {}
+    if destination.kind == "floor" then
+        admitted = moves
+    else
+        local projected = destination.container:getCapacityWeight()
+        local capacity = destination.container:getCapacity()
+        for _, move in ipairs(moves) do
+            local weight = move.item:getActualWeight()
+            local allowed = destination.container:isItemAllowed(move.item)
+                and not destination.container:isInside(move.item)
+                and projected + weight <= capacity
+            if allowed then
+                projected = projected + weight
+                table.insert(admitted, move)
+            end
+        end
+        if #admitted == 0 then
+            return moveError("no room in " .. destination.name)
+        end
+    end
+
+    -- walkToContainer() clears the whole timed-action queue when it decides a
+    -- walk is needed (luautils.lua:357), so every reachability gate has to run
+    -- before the first transfer is queued or the walk would throw the transfers
+    -- away. In practice both sides sit inside the 3x3 scan radius and the
+    -- distance short-circuit at luautils.lua:310 returns without queuing anything.
+    local playerNum = player:getPlayerNum()
+    local gated = {}
+    local function gate(entry)
+        if gated[entry.id] or entry.kind == "floor" or entry.kind == "player" then return true end
+        gated[entry.id] = true
+        if not luautils.walkToContainer(entry.container, playerNum) then
+            return false
+        end
+        return true
+    end
+
+    if not gate(destination) then
+        return moveError("cannot reach " .. destination.name)
+    end
+    for _, move in ipairs(admitted) do
+        if not gate(move.record) then
+            return moveError("cannot reach " .. move.record.name)
+        end
+    end
+
+    for _, move in ipairs(admitted) do
+        local item = move.item
+        if destination.kind == "floor" then
+            ISInventoryPaneContextMenu.dropItem(item, playerNum)
+        elseif move.record.kind == "floor" then
+            -- Picking up off the ground forks on SP/MP exactly the way
+            -- ISWorldObjectContextMenu.lua:1455-1459 does. Either way the item
+            -- lands in the player's hands first; anywhere else needs a second
+            -- hop, which revalidates once the grab has completed.
+            if isClient() then
+                ISTimedActionQueue.add(ISInventoryTransferUtil.newInventoryTransferAction(
+                    player, item, item:getContainer(), player:getInventory()))
+            else
+                ISTimedActionQueue.add(ISGrabItemAction:new(player, move.record.worldObjects[item:getID()], 20))
+            end
+            if destination.id ~= "player" then
+                ISTimedActionQueue.add(ISInventoryTransferUtil.newInventoryTransferAction(
+                    player, item, player:getInventory(), destination.container))
+            end
+        else
+            -- Source comes off the item, not off the enumeration record: that
+            -- is what every vanilla call site passes and it cannot go stale.
+            ISTimedActionQueue.add(ISInventoryTransferUtil.newInventoryTransferAction(
+                player, item, item:getContainer(), destination.container))
+        end
+    end
+
     return true
 end
 

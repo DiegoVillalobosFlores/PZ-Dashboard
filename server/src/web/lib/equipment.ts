@@ -12,10 +12,10 @@
 // empty slot is neither.
 
 import type {
+  ContainerItemSnapshot,
+  ContainerSnapshot,
   EquippedItemSnapshot,
   EquipmentSnapshot,
-  InventoryItemSnapshot,
-  InventorySnapshot,
   ToolbarSnapshot,
 } from './liveTypes';
 import { iconForItem } from './itemIcon';
@@ -295,7 +295,7 @@ export interface SelectableItem {
   equipped: boolean;
 }
 
-function toSelectable(item: InventoryItemSnapshot, equippedType?: string): SelectableItem {
+function toSelectable(item: ContainerItemSnapshot, equippedType?: string): SelectableItem {
   return {
     type: item.type,
     name: item.name,
@@ -310,8 +310,8 @@ function toSelectable(item: InventoryItemSnapshot, equippedType?: string): Selec
 
 // A stack of five identical bandages is five inventory rows but one choice,
 // so collapse by type — the drawer is for picking *what* to equip.
-function dedupeByType(items: InventoryItemSnapshot[]): InventoryItemSnapshot[] {
-  const byType = new Map<string, InventoryItemSnapshot>();
+function dedupeByType(items: ContainerItemSnapshot[]): ContainerItemSnapshot[] {
+  const byType = new Map<string, ContainerItemSnapshot>();
   for (const item of items) {
     // Keep the best-conditioned of a duplicate set: equipping the axe that's
     // about to break when a fresh one is in the bag is never the intent.
@@ -324,7 +324,7 @@ function dedupeByType(items: InventoryItemSnapshot[]): InventoryItemSnapshot[] {
 // Anything that isn't clothing can go in a hand — tools, weapons, a lit
 // candle, a bag of nails — so this filters out only what PZ would refuse.
 export function handCandidates(
-  inventory: InventorySnapshot | null,
+  inventory: ContainerSnapshot | null,
   equippedType?: string,
 ): SelectableItem[] {
   const items = (inventory?.items ?? []).filter((item) => item.category !== 'Clothing');
@@ -334,7 +334,7 @@ export function handCandidates(
 // Clothing whose own body location belongs to this paperdoll slot, so the
 // Head drawer offers hats rather than the whole wardrobe.
 export function wearCandidates(
-  inventory: InventorySnapshot | null,
+  inventory: ContainerSnapshot | null,
   slotId: PaperdollSlotId,
   equippedType?: string,
 ): SelectableItem[] {

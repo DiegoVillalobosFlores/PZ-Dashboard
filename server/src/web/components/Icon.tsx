@@ -56,6 +56,9 @@ import {
   AlertTriangle,
   Activity,
   Skull,
+  Archive,
+  Lock,
+  ArrowRight,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -117,6 +120,9 @@ const ICONS: Record<string, LucideIcon> = {
   'alert-triangle': AlertTriangle,
   activity: Activity,
   skull: Skull,
+  archive: Archive,
+  lock: Lock,
+  'arrow-right': ArrowRight,
 };
 
 export function Icon({
