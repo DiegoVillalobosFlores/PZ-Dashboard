@@ -38,7 +38,12 @@ interface RouteGraph {
 const WELD_TOLERANCE = 1.5;
 // How far a street's dangling tip may be from another street's line before
 // we give up on it being a real intersection (vs. a genuine dead end).
-const JUNCTION_TOLERANCE = 5;
+// Empirically, 5 was too tight: streets.xml intersections aren't perfectly
+// surveyed, and it left the graph fractured into three large, mutually
+// unreachable islands (only ~34% of nodes in the biggest one). 10 merges
+// those into one connected network (~99%), leaving only genuine dead ends
+// split off.
+const JUNCTION_TOLERANCE = 10;
 const GRID_CELL_SIZE = 12;
 
 function distance(ax: number, ay: number, bx: number, by: number): number {
@@ -148,9 +153,13 @@ function buildGraph(streets: StreetLabel[]): RouteGraph {
     } else if (distance(best.point.x, best.point.y, b.x, b.y) <= WELD_TOLERANCE) {
       addEdge(nodeId, edge.b, distance(node.x, node.y, b.x, b.y));
     } else {
-      const splitId = nodes.length;
-      nodes.push({ x: best.point.x, y: best.point.y, edges: new Map() });
-      registerInGrid(splitId);
+      // findOrCreateNode (not a bare push) so two different dangling tips
+      // that land on the same real intersection - e.g. a street ending on
+      // each side of a divided road - reuse one node instead of each
+      // creating their own, which otherwise left same-spot nodes with no
+      // edge between them and forced routes clear across the map to find
+      // a path from one to the other.
+      const splitId = findOrCreateNode(best.point.x, best.point.y);
       // Rewire through the split point instead of leaving the original
       // edge in place, so the route can't cut straight through a corner.
       a.edges.delete(edge.b);
@@ -164,28 +173,63 @@ function buildGraph(streets: StreetLabel[]): RouteGraph {
   return { nodes };
 }
 
-function nearestNode(graph: RouteGraph, x: number, y: number): number | null {
-  let bestId: number | null = null;
-  let bestDist = Infinity;
-  for (let i = 0; i < graph.nodes.length; i++) {
-    const d = distance(x, y, graph.nodes[i]!.x, graph.nodes[i]!.y);
-    if (d < bestDist) {
-      bestDist = d;
-      bestId = i;
-    }
-  }
-  return bestId;
+interface EdgeAnchor {
+  a: number;
+  b: number;
+  point: RoutePoint;
+  distA: number;
+  distB: number;
 }
 
-// Binary-heap Dijkstra - the graph tops out around a few thousand nodes per
-// region, so this runs in low single-digit milliseconds per route request.
-function shortestPath(graph: RouteGraph, startId: number, endId: number): number[] | null {
+// Finds where (x, y) actually meets the road network. Snapping to the
+// nearest *vertex* is wrong here: streets.xml only has vertices at bends,
+// so a long straight block can be hundreds of units between them, and a
+// point standing right next to the middle of that block would otherwise
+// get dragged to whichever distant bend happens to be closest - producing
+// a route that detours to that vertex before backtracking. Projecting onto
+// the nearest *edge* instead keeps the entry point where the traveler
+// actually is.
+function nearestPointOnGraph(graph: RouteGraph, x: number, y: number): EdgeAnchor | null {
+  let best: EdgeAnchor | null = null;
+  let bestDist = Infinity;
+  for (let a = 0; a < graph.nodes.length; a++) {
+    const nodeA = graph.nodes[a]!;
+    for (const b of nodeA.edges.keys()) {
+      if (b < a) continue; // each edge is stored on both endpoints - visit once
+      const nodeB = graph.nodes[b]!;
+      const point = closestPointOnSegment(x, y, nodeA.x, nodeA.y, nodeB.x, nodeB.y);
+      const dist = distance(x, y, point.x, point.y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = {
+          a,
+          b,
+          point,
+          distA: distance(point.x, point.y, nodeA.x, nodeA.y),
+          distB: distance(point.x, point.y, nodeB.x, nodeB.y),
+        };
+      }
+    }
+  }
+  return best;
+}
+
+// Binary-heap Dijkstra seeded from both ends of the start's snapped edge at
+// once (rather than a single start node), and stopping at whichever end of
+// the destination's snapped edge is cheaper to reach - so the route isn't
+// forced through one arbitrary vertex when the real entry/exit point sits
+// between two. The graph tops out around a few thousand nodes per region,
+// so this runs in low single-digit milliseconds per route request.
+function shortestPath(
+  graph: RouteGraph,
+  seeds: { node: number; dist: number }[],
+  targets: { node: number; extra: number }[],
+): { path: number[]; distance: number } | null {
   const dist = new Array<number>(graph.nodes.length).fill(Infinity);
   const prev = new Array<number>(graph.nodes.length).fill(-1);
   const visited = new Uint8Array(graph.nodes.length);
-  dist[startId] = 0;
 
-  const heap: [number, number][] = [[0, startId]];
+  const heap: [number, number][] = [];
   function push(item: [number, number]) {
     heap.push(item);
     let i = heap.length - 1;
@@ -216,12 +260,18 @@ function shortestPath(graph: RouteGraph, startId: number, endId: number): number
     return top;
   }
 
+  for (const seed of seeds) {
+    if (seed.dist < dist[seed.node]!) {
+      dist[seed.node] = seed.dist;
+      push([seed.dist, seed.node]);
+    }
+  }
+
   while (heap.length > 0) {
     const next = pop()!;
     const [d, id] = next;
     if (visited[id]) continue;
     visited[id] = 1;
-    if (id === endId) break;
     if (d > dist[id]!) continue;
     for (const [neighbor, weight] of graph.nodes[id]!.edges) {
       const nextDist = d + weight;
@@ -233,15 +283,25 @@ function shortestPath(graph: RouteGraph, startId: number, endId: number): number
     }
   }
 
-  if (dist[endId] === Infinity) return null;
+  let bestTarget: number | null = null;
+  let bestTotal = Infinity;
+  for (const target of targets) {
+    const total = dist[target.node]! + target.extra;
+    if (total < bestTotal) {
+      bestTotal = total;
+      bestTarget = target.node;
+    }
+  }
+  if (bestTarget === null || bestTotal === Infinity) return null;
+
   const path: number[] = [];
-  let cur = endId;
+  let cur = bestTarget;
   while (cur !== -1) {
     path.push(cur);
     cur = prev[cur]!;
   }
   path.reverse();
-  return path;
+  return { path, distance: bestTotal };
 }
 
 const graphCache = new Map<string, RouteGraph>();
@@ -259,14 +319,30 @@ export function findRoute(region: string, from: RoutePoint, to: RoutePoint): Rou
   const graph = getGraph(region);
   if (graph.nodes.length === 0) return null;
 
-  const startId = nearestNode(graph, from.x, from.y);
-  const endId = nearestNode(graph, to.x, to.y);
-  if (startId === null || endId === null) return null;
+  const startAnchor = nearestPointOnGraph(graph, from.x, from.y);
+  const endAnchor = nearestPointOnGraph(graph, to.x, to.y);
+  if (!startAnchor || !endAnchor) return null;
 
-  const path = shortestPath(graph, startId, endId);
-  if (!path) return null;
+  const result = shortestPath(
+    graph,
+    [
+      { node: startAnchor.a, dist: startAnchor.distA },
+      { node: startAnchor.b, dist: startAnchor.distB },
+    ],
+    [
+      { node: endAnchor.a, extra: endAnchor.distA },
+      { node: endAnchor.b, extra: endAnchor.distB },
+    ],
+  );
+  if (!result) return null;
 
-  const points: RoutePoint[] = [from, ...path.map((id) => ({ x: graph.nodes[id]!.x, y: graph.nodes[id]!.y })), to];
+  const points: RoutePoint[] = [
+    from,
+    startAnchor.point,
+    ...result.path.map((id) => ({ x: graph.nodes[id]!.x, y: graph.nodes[id]!.y })),
+    endAnchor.point,
+    to,
+  ];
   let distanceSquares = 0;
   for (let i = 1; i < points.length; i++) {
     distanceSquares += distance(points[i - 1]!.x, points[i - 1]!.y, points[i]!.x, points[i]!.y);
