@@ -28,8 +28,7 @@ export function HomeScreen() {
 
   return (
     <>
-      <div style={{ position: 'absolute', top: isWide ? 24 : 58, right: isWide ? 40 : 12 }}>
-        <HandEquipmentWidget wide={!!isWide} onSelectSlot={setActiveHand} />
+      <div style={{ position: 'absolute', top: isWide ? 24 : 100, right: isWide ? 40 : 12 }}>        <HandEquipmentWidget wide={!!isWide} onSelectSlot={setActiveHand} />
       </div>
       <SelectionDrawer
         opened={activeHand !== null}

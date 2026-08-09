@@ -16,6 +16,8 @@ Everything referenced below lives in `penpot/` in this repo:
 `docker-compose.yaml`, `.env` (gitignored — copy `.env.example`), `pcall.sh`,
 `pcallh.sh`, `helpers.js`, `README.md`.
 
+Don't recreate each screen for every version — just create the new or updated screens as needed. This is the most important rule you need to follow.
+
 ## 1. Start the stack
 
 ```
@@ -212,8 +214,6 @@ across a row to see one version's full set of screens, or down a column to
 see one screen's history.
 
 Be very consice and don't write too many things in the handover. Just get to the point of what changes on every version and why it was done that way.
-
-Don't recreate each screen for every version — just create the new or updated screens as needed.
 
 - `storage.versionColumns` (in `helpers.js`) is the ordered list of
   `{ key, width }` columns. **Add a new entry when introducing a new screen

@@ -1,4 +1,5 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
+import { useModalContext } from './ModalContext';
 
 export function ScreenModal({
   children,
@@ -7,6 +8,12 @@ export function ScreenModal({
   children: ReactNode;
   contentStyle?: CSSProperties;
 }) {
+  const { registerModal } = useModalContext();
+
+  useEffect(() => {
+    return registerModal();
+  }, [registerModal]);
+
   return (
     <div
       style={{
@@ -15,7 +22,10 @@ export function ScreenModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 24,
+        paddingTop: 'calc(var(--hud-top-inset) + 24px)',
+        paddingBottom: 'calc(var(--hud-hotbar-inset) + 24px)',
+        paddingLeft: 'var(--hud-left-inset, 24px)',
+        paddingRight: 'var(--hud-right-inset, 24px)',
         boxSizing: 'border-box',
         pointerEvents: 'none',
         zIndex: 1,
@@ -25,7 +35,7 @@ export function ScreenModal({
         style={{
           pointerEvents: 'auto',
           maxWidth: '100%',
-          maxHeight: 'calc(100dvh - var(--hud-top-inset) - var(--hud-hotbar-inset))',
+          maxHeight: '100%',
           minHeight: 0,
           minWidth: 0,
           overflow: 'hidden',

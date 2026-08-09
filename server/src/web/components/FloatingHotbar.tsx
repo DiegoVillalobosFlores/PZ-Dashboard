@@ -17,7 +17,11 @@ function groupNaturalWidth(slotCount: number, tile: number, gap: number, pad: nu
   return pad * 2 + cols * tile + Math.max(0, cols - 1) * gap;
 }
 
-export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
+export function FloatingHotbar({
+  compact = false,
+  forcedSingleRow = false,
+  isMobile = false,
+}: { compact?: boolean; forcedSingleRow?: boolean; isMobile?: boolean }) {
   const groups =
     useGameSubscription('hotbar', (msg) =>
       msg.category === 'toolbar' ? hotbarGroups(msg.data) : undefined,
@@ -34,7 +38,7 @@ export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root || groups.length === 0) {
-      setMaxRows(MAX_ROWS_ROOMY);
+      setMaxRows(forcedSingleRow ? 1 : (isMobile ? MAX_ROWS_ROOMY : MAX_ROWS_ROOMY));
       return;
     }
 
@@ -50,7 +54,13 @@ export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
         if (i > 0) total += groupGap;
       });
 
-      setMaxRows(total > budget ? 1 : MAX_ROWS_ROOMY);
+      if (forcedSingleRow) {
+        setMaxRows(1);
+      } else if (isMobile) {
+        setMaxRows(MAX_ROWS_ROOMY);
+      } else {
+        setMaxRows(total > budget ? 1 : MAX_ROWS_ROOMY);
+      }
     };
 
     measure();
@@ -58,7 +68,7 @@ export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
     if (root.parentElement) ro.observe(root.parentElement);
     ro.observe(root);
     return () => ro.disconnect();
-  }, [groups, compact, gap, groupGap, pad, tile]);
+  }, [groups, compact, gap, groupGap, pad, tile, forcedSingleRow, isMobile]);
 
   function equip(slot: EquipSlotState) {
     if (slot.itemType) sendAction('equipPrimary', { itemType: slot.itemType });
@@ -74,7 +84,8 @@ export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
         flexDirection: 'row',
         flexWrap: 'nowrap',
         alignItems: 'flex-start',
-        justifyContent: 'center',
+        justifyContent: isMobile ? 'stretch' : 'center',
+        width: isMobile ? '100%' : 'auto',
         maxWidth: '100%',
         gap: groupGap,
         pointerEvents: 'auto',
@@ -90,7 +101,8 @@ export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
             alignItems: 'center',
             gap: compact ? 6 : 8,
             padding: pad,
-            flex: '0 0 auto',
+            flex: isMobile ? '1 1 auto' : '0 0 auto',
+            minWidth: isMobile ? 0 : undefined,
           }}
         >
           <span
@@ -112,12 +124,14 @@ export function FloatingHotbar({ compact = false }: { compact?: boolean }) {
               flexWrap: 'nowrap',
               alignItems: 'flex-start',
               gap,
+              width: isMobile ? '100%' : 'auto',
+              justifyContent: isMobile ? 'space-between' : 'flex-start',
             }}
           >
             {columnsOf(group.slots, maxRows).map((column) => (
               <div
                 key={column[0]!.id}
-                style={{ display: 'flex', flexDirection: 'column', gap }}
+                style={{ display: 'flex', flexDirection: 'column', gap, flex: isMobile ? '1 1 auto' : undefined }}
               >
                 {column.map((slot) => (
                   <EquipTile

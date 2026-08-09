@@ -8,24 +8,22 @@ import { HudIconButton } from './HudIconButton';
 import { MapCanvas } from './MapCanvas';
 import { QuickNav, useCurrentDestinationId } from './QuickNav';
 import { mockMapPins } from '../mock/gameState';
+import { ModalProvider, useModalContext } from './ModalContext';
 
-// The app's layout route: everything here - the map behind the HUD, the vitals
-// pill, the nav rail, the hotbar - stays mounted across navigation, so the map
-// holds its pan/zoom and marker easing and the socket-backed widgets never
-// re-subscribe just because the player switched screens. Only <Outlet /> swaps.
-//
-// Deliberately holds no game state: each child subscribes to the shared socket
-// itself (see lib/gameSocket.ts), so nothing gets threaded through here.
 const HOTBAR_CLEARANCE = 16;
 const TOP_INSET = { wide: 88, compact: 104 };
+const LEFT_INSET = { wide: 112, compact: 24 };
+const RIGHT_INSET = 80;
 
-export function HudShell() {
+function HudShellInner() {
   const isWide = useMediaQuery('(min-width: 900px)');
   const currentId = useCurrentDestinationId();
   const [annotationsOpen, setAnnotationsOpen] = useState(false);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const hotbarRef = useRef<HTMLDivElement | null>(null);
-  const hotbarBottom = isWide ? 40 : 24;
+  const { isModalOpen } = useModalContext();
+  const hotbarBottom = isModalOpen ? 4 : (isWide ? 40 : 0);
+  const hotbarForcedSingleRow = isModalOpen;
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -52,6 +50,8 @@ export function HudShell() {
         background: 'var(--color-bg-app)',
         '--hud-hotbar-inset': '0px',
         '--hud-top-inset': `${isWide ? TOP_INSET.wide : TOP_INSET.compact}px`,
+        '--hud-left-inset': `${isWide ? LEFT_INSET.wide : LEFT_INSET.compact}px`,
+        '--hud-right-inset': `${RIGHT_INSET}px`,
       } as CSSProperties}
     >
       <MapCanvas pins={mockMapPins} />
@@ -69,15 +69,18 @@ export function HudShell() {
         <div
           style={{
             position: 'absolute',
-            top: 12,
-            left: 12,
-            right: 12,
+            top: 0,
+            left: 0,
+            right: 0,
             zIndex: 2,
             display: 'flex',
             flexWrap: 'wrap',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
             gap: 8,
+            paddingTop: 8,
+            paddingLeft: 8,
+            paddingRight: 8,
           }}
         >
           <ConditionCluster compact />
@@ -103,10 +106,18 @@ export function HudShell() {
           pointerEvents: 'none',
         }}
       >
-        <FloatingHotbar compact={!isWide} />
+        <FloatingHotbar compact={!isWide} forcedSingleRow={hotbarForcedSingleRow} isMobile={!isWide} />
       </div>
 
       <AnnotationsDrawer opened={annotationsOpen} onClose={() => setAnnotationsOpen(false)} />
     </div>
+  );
+}
+
+export function HudShell() {
+  return (
+    <ModalProvider>
+      <HudShellInner />
+    </ModalProvider>
   );
 }

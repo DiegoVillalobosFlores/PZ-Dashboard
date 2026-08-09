@@ -1,7 +1,9 @@
 import homepage from "../index.html";
+import { join } from "node:path";
 import { PORT } from "./config";
 import { getRegionMeta, getTilePath, listRegions, worldToTile } from "./map/tiles";
 import { queryVectorMap } from "./map/vectorMap";
+import { findRoute } from "./map/routing";
 import { resolveModelPath, resolveTexturePath } from "./model/assets";
 import { buildFigure } from "./model/figure";
 import { loadMesh } from "./model/xModel";
@@ -124,6 +126,25 @@ const server = Bun.serve({
         return new Response(String(err), { status: 404 });
       }
     },
+    "/api/map/:region/route": (req) => {
+      const url = new URL(req.url);
+      const fromX = Number(url.searchParams.get("fromX"));
+      const fromY = Number(url.searchParams.get("fromY"));
+      const toX = Number(url.searchParams.get("toX"));
+      const toY = Number(url.searchParams.get("toY"));
+      if (![fromX, fromY, toX, toY].every(Number.isFinite)) {
+        return new Response("Bad request: expected ?fromX=&fromY=&toX=&toY= world-square coordinates", {
+          status: 400,
+        });
+      }
+
+      try {
+        const route = findRoute(req.params.region, { x: fromX, y: fromY }, { x: toX, y: toY });
+        return Response.json(route);
+      } catch (err) {
+        return new Response(String(err), { status: 404 });
+      }
+    },
     // Item icons extracted from the game's UI.pack/UI2.pack texture atlases -
     // filenames match the subtexture names the mod reports as `icon` on
     // inventory items (item:getTex():getName() in
@@ -131,7 +152,7 @@ const server = Bun.serve({
     "/item-icons/:name": async (req) => {
       const name = req.params.name;
       if (!/^[A-Za-z0-9_]+\.png$/.test(name)) return new Response("Not found", { status: 404 });
-      const file = Bun.file(`public/item-icons/${name}`);
+      const file = Bun.file(join(import.meta.dir, "..", "public", "item-icons", name));
       if (!(await file.exists())) return new Response("Not found", { status: 404 });
       return new Response(file, { headers: { "Content-Type": "image/png" } });
     },

@@ -131,13 +131,6 @@ function CategorySection({
   );
 }
 
-// v11 skills grid: replaces v10's tall single-column list (which ran taller
-// than the frame on both breakpoints) with a flex-wrap grid of compact skill
-// tiles, so the panel's width does real work instead of only height — Ayaneo
-// fits all 25 skills with no scroll, mobile is denser but still needs one.
-// The 10-square meter itself is unchanged from v10 (PZ's own skill UI), just
-// laid out differently. The panel sizes to whatever box the screen gives it
-// (see SkillsScreen), which keeps it clear of the surrounding HUD chrome.
 export function SkillsPanel({
   categories,
   compact = false,
@@ -168,7 +161,7 @@ export function SkillsPanel({
     <GlassPanel
       cornerBrackets={{ length: 20, thickness: 2, inset: 6, opacity: 0.85 }}
       style={{
-        width: compact ? 340 : 1370,
+        width: compact ? '100%' : 1370,
         maxWidth: '100%',
         maxHeight: '100%',
         boxSizing: 'border-box',

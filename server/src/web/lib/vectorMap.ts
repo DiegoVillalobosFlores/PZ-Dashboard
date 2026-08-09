@@ -93,3 +93,23 @@ export async function queryVectorMap(
   if (!res.ok) return null;
   return (await res.json()) as VectorMapData;
 }
+
+export interface RoutePoint {
+  x: number;
+  y: number;
+}
+
+export interface RouteResult {
+  points: RoutePoint[];
+  distanceSquares: number;
+}
+
+// Null return covers both a network/server error and a genuine "no road
+// path exists" - the graph is streets-only, so a destination on an island
+// of dead-end trails can be unreachable even though it's a valid click.
+export async function queryRoute(region: string, from: RoutePoint, to: RoutePoint): Promise<RouteResult | null> {
+  const url = `${apiBase()}/api/map/${encodeURIComponent(region)}/route?fromX=${from.x}&fromY=${from.y}&toX=${to.x}&toY=${to.y}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  return (await res.json()) as RouteResult | null;
+}

@@ -10,6 +10,7 @@ export type FigurePart = {
   tint: [number, number, number] | null;
   layer: number;
   offset?: number[];
+  attachBone?: string;
 };
 
 export type Figure = {
@@ -251,6 +252,7 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
     if (!hasModel && !texture) continue;
 
     let offset: number[] | undefined;
+    let attachBone: string | undefined;
     const isStatic = hasModel && /(?:^|[\/\\])static(?:[\/\\]|$)/i.test(modelPath);
     if (isStatic && skeleton) {
       const boneName =
@@ -258,7 +260,11 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
         (worn.location && ATTACHMENT_BONE[worn.location]) ||
         def.attachments.map((a) => ATTACHMENT_BONE[a]).find(Boolean) ||
         undefined;
-      if (boneName) offset = skeleton.get(boneName);
+      const bone = boneName ? skeleton.get(boneName) : undefined;
+      if (bone) {
+        offset = bone;
+        attachBone = boneName;
+      }
     }
 
     parts.push({
@@ -269,6 +275,7 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
       tint: rgb(worn.tint),
       layer: hasModel ? LAYER.clothing : LAYER.painted,
       offset,
+      attachBone,
     });
   }
 

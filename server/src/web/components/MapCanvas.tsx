@@ -5,8 +5,10 @@ import {
   BASE_MAP_COLOR,
   DRAW_ORDER,
   FEATURE_COLOR,
+  queryRoute,
   queryVectorMap,
   type FeatureCategory,
+  type RoutePoint,
   type VectorMapData,
 } from '../lib/vectorMap';
 import { DEFAULT_MAP_REGION } from '../lib/mapTiles';
@@ -20,6 +22,12 @@ const PIN_COLOR: Record<MapPin['kind'], string> = {
   zombie: 'var(--color-text-secondary)',
   poi: 'var(--color-danger)',
 };
+
+const ROUTE_COLOR = '#000000';
+// Pointer-up movement under this counts as a click (set destination) rather
+// than the drag that just ended - real touches/mice rarely land back on the
+// exact start pixel even when the user meant a tap.
+const CLICK_MOVE_THRESHOLD_PX = 6;
 
 type WorldPoint = { x: number; y: number };
 
@@ -174,6 +182,13 @@ export function MapCanvas({
   // button, which resumes following the live player position.
   const [manualCenter, setManualCenter] = useState<WorldPoint | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  // Set by clicking the map - a chosen destination to route to from the
+  // live player position. Cleared by the "clear route" button.
+  const [destination, setDestination] = useState<WorldPoint | null>(null);
+  const [routePoints, setRoutePoints] = useState<RoutePoint[] | null>(null);
+  // True when no road path could be found (disconnected street graph) and
+  // routePoints is a straight-line fallback instead of an actual route.
+  const [routeIsDirect, setRouteIsDirect] = useState(false);
 
   const liveCenter = position ? { x: position.x, y: position.y } : null;
   // The drawn position glides between fixes; the marker and (while
@@ -226,6 +241,17 @@ export function MapCanvas({
 
     setZoomSquares(nextZoom);
     setManualCenter({ x: nextCenterX, y: nextCenterY });
+  }
+
+  function screenToWorld(clientX: number, clientY: number, rect: DOMRect): WorldPoint | null {
+    const current = centerRef.current;
+    if (!current) return null;
+    const span = Math.max(rect.width, rect.height);
+    const upp = zoomRef.current / span;
+    return {
+      x: current.x + (clientX - rect.left - rect.width / 2) * upp,
+      y: current.y + (clientY - rect.top - rect.height / 2) * upp,
+    };
   }
 
   useMapFocus((target) => {
@@ -318,8 +344,16 @@ export function MapCanvas({
   }
 
   function endPointer(e: React.PointerEvent<HTMLDivElement>) {
+    const gesture = gestureRef.current;
     pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size === 0) {
+      if (gesture?.mode === 'pan') {
+        const movedPx = Math.hypot(e.clientX - gesture.startClientX, e.clientY - gesture.startClientY);
+        if (movedPx < CLICK_MOVE_THRESHOLD_PX) {
+          const world = screenToWorld(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
+          if (world) setDestination(world);
+        }
+      }
       gestureRef.current = null;
       setIsDragging(false);
     } else if (pointersRef.current.size === 1 && centerRef.current) {
@@ -386,6 +420,34 @@ export function MapCanvas({
       clearTimeout(timer);
     };
   }, [region, fetchCenter?.x, fetchCenter?.y, zoomSquares]);
+
+  // Recomputes whenever the destination changes or the player walks (the
+  // raw, twice-a-second position - not the per-frame smoothed one, which
+  // would fire a request every animation frame while moving).
+  useEffect(() => {
+    if (!destination || !liveCenter) {
+      setRoutePoints(null);
+      setRouteIsDirect(false);
+      return;
+    }
+    let cancelled = false;
+    queryRoute(region, liveCenter, destination).then((result) => {
+      if (cancelled) return;
+      if (result) {
+        setRoutePoints(result.points);
+        setRouteIsDirect(false);
+      } else {
+        // No road path in the streets graph between these points (e.g. an
+        // isolated trail) - a straight line is still more useful than
+        // nothing.
+        setRoutePoints([liveCenter, destination]);
+        setRouteIsDirect(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [region, destination?.x, destination?.y, liveCenter?.x, liveCenter?.y]);
 
   const labelSize = zoomSquares / 34;
   const placeLabelSize = zoomSquares / 16;
@@ -524,6 +586,29 @@ export function MapCanvas({
             </text>
           ))}
 
+        {routePoints && routePoints.length > 1 && (
+          <polyline
+            points={polygonPoints(routePoints.map((p) => [p.x, p.y]))}
+            fill="none"
+            stroke={ROUTE_COLOR}
+            strokeWidth={zoomSquares / 260}
+            strokeDasharray={routeIsDirect ? `${zoomSquares / 90} ${zoomSquares / 130}` : undefined}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {destination && (
+          <circle
+            cx={destination.x}
+            cy={destination.y}
+            r={zoomSquares / 100}
+            fill={ROUTE_COLOR}
+            stroke="white"
+            strokeWidth={zoomSquares / 900}
+          />
+        )}
+
         {smoothedCenter && (
           <circle
             cx={smoothedCenter.x}
@@ -560,6 +645,24 @@ export function MapCanvas({
               setManualCenter(null);
             }}
           />
+        </div>
+      )}
+
+      {destination && (
+        // Same event-isolation reasoning as the recenter button above. Stacks
+        // above whichever of the fixed right-edge buttons is currently
+        // showing: HudShell's "Map notes" always occupies bottom:132, and
+        // the recenter button above adds bottom:186 while manualCenter is
+        // set - so this one takes 186 normally, or 240 when it'd otherwise
+        // land on top of recenter.
+        <div
+          style={{ position: 'absolute', right: 20, bottom: manualCenter ? 240 : 186 }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          <HudIconButton icon="close" label="Clear route" onClick={() => setDestination(null)} />
         </div>
       )}
     </div>

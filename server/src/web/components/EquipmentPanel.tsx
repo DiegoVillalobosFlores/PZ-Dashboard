@@ -1,32 +1,12 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { Loader } from '@mantine/core';
 import { CharacterModel } from './CharacterModel';
 import { EquipTile } from './EquipTile';
-import { Icon } from './Icon';
 import { GlassPanel } from './GlassPanel';
 import { useGameSubscription } from '../lib/gameSocket';
 import { paperdollSlots, type EquipSlotState, type PaperdollSlotId } from '../lib/equipment';
+import { useModalContext } from './ModalContext';
 
 const ALL_SLOTS: PaperdollSlotId[] = ['head', 'torso', 'hands', 'face', 'back', 'belt', 'holster', 'wrist', 'legs', 'feet'];
-
-function useMeasuredHeight() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [height, setHeight] = useState(0);
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => {
-      const h = el.clientHeight;
-      if (h > 0) setHeight(h);
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return { ref, height };
-}
 
 export function EquipmentPanel({
   compact = false,
@@ -35,6 +15,9 @@ export function EquipmentPanel({
   compact?: boolean;
   onSelectSlot: (slot: EquipSlotState) => void;
 }) {
+  const { isModalOpen } = useModalContext();
+  const inModal = isModalOpen;
+
   const slots =
     useGameSubscription('paperdoll', (msg) =>
       msg.category === 'equipment' ? paperdollSlots(msg.data) : undefined,
@@ -43,13 +26,13 @@ export function EquipmentPanel({
   const status = useGameSubscription('status', (msg) =>
     msg.category === 'status' ? msg.data : undefined,
   );
-  const characterName = status?.displayName ?? 'Character';
+  const firstName = status?.forename || 'Character';
+  const lastName = status?.surname ?? '';
 
   const bySlot = Object.fromEntries(slots.map((s) => [s.id, s])) as Record<
     PaperdollSlotId,
     EquipSlotState
   >;
-  const { ref: rowRef, height: rowHeight } = useMeasuredHeight();
   const gridGap = compact ? 12 : 16;
   const sideGap = compact ? 18 : 32;
   const paddingX = compact ? 26 : 40;
@@ -58,7 +41,6 @@ export function EquipmentPanel({
   const tileGridWidth = 2 * tileBox + gridGap;
   const maxModelWidth = panelWidth - 2 * paddingX - tileGridWidth - sideGap;
   const fallbackSize = compact ? 180 : 340;
-  const modelSize = rowHeight > 0 ? Math.min(rowHeight, Math.floor(maxModelWidth)) : fallbackSize;
 
   const tile = (id: PaperdollSlotId) => (
     <EquipTile
@@ -69,6 +51,8 @@ export function EquipmentPanel({
       onClick={() => onSelectSlot(bySlot[id])}
     />
   );
+
+  const isCompactModal = compact && inModal;
 
   return (
     <GlassPanel
@@ -84,40 +68,68 @@ export function EquipmentPanel({
         gap: compact ? 16 : 24,
       }}
     >
-      <span
-        style={{
-          fontSize: compact ? 16 : 18,
-          fontFamily: 'var(--font-display)',
-          fontWeight: 700,
-          letterSpacing: '0.04em',
-          color: 'var(--color-text-primary)',
-        }}
-        className="pz-label"
-      >
-        {characterName}
-      </span>
-      <div ref={rowRef} style={{ display: 'flex', alignItems: 'stretch', gap: sideGap }}>
-        <CharacterModel
-          size={modelSize}
-          fallback={
-            <Icon
-              name="person-standing"
-              size={fallbackSize}
-              color="var(--color-text-tertiary)"
-              strokeWidth={1.5}
-            />
-          }
-        />
-        <div
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+        <span
           style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(2, 1fr)`,
-            gap: gridGap,
+            fontSize: compact ? 16 : 18,
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            color: 'var(--color-text-primary)',
           }}
+          className="pz-label"
         >
-          {ALL_SLOTS.map(tile)}
-        </div>
+          {firstName}
+        </span>
+        {lastName && (
+          <span
+            style={{
+              fontSize: compact ? 12 : 13,
+              fontFamily: 'var(--font-display)',
+              fontWeight: 500,
+              letterSpacing: '0.04em',
+              color: 'var(--color-text-secondary)',
+            }}
+            className="pz-label"
+          >
+            {lastName}
+          </span>
+        )}
       </div>
+      {isCompactModal ? (
+        <>
+          <div style={{ width: '100%', height: fallbackSize, display: 'flex', justifyContent: 'center' }}>
+            <CharacterModel fallback={<Loader color="var(--color-text-tertiary)" />} />
+          </div>
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(5, 1fr)`,
+                gap: gridGap,
+                maxWidth: panelWidth - 2 * paddingX,
+              }}
+            >
+              {ALL_SLOTS.map(tile)}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: sideGap }}>
+          <div style={{ width: maxModelWidth, flexShrink: 0 }}>
+            <CharacterModel fallback={<Loader color="var(--color-text-tertiary)" />} />
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(2, 1fr)`,
+              gap: gridGap,
+            }}
+          >
+            {ALL_SLOTS.map(tile)}
+          </div>
+        </div>
+      )}
     </GlassPanel>
   );
 }

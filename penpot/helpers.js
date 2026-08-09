@@ -185,6 +185,9 @@ storage.versionColumns = [
   // New in v11.
   { key: "ayaneo-inventory", width: 1620 },
   { key: "mobile-inventory", width: 390 },
+  // New in v13: Annotations (Map Notes) drawer.
+  { key: "ayaneo-annotations", width: 480 },
+  { key: "mobile-annotations", width: 330 },
 ];
 storage.versionGap = 80;
 storage.versionRowGap = 120;
@@ -803,6 +806,388 @@ storage.selectableTile = (item, width, height) => {
   meta.appendChild(storage.text(`${item.weight}kg`, { size: 10, weight: "400", color: "color.text.secondary" }));
   tile.appendChild(meta);
   return tile;
+};
+
+// ---- v14: FloatingHotbar rebuilt as labeled, per-equip-slot groups that
+// stack up to 2 rows each (columnsOf in FloatingHotbar.tsx), not the flat
+// unlabeled single row every prior version showed — confirmed wrong against
+// a live screenshot (real hotbar shows "HANDS"/"BELT"/"HOLSTER" headers,
+// Holster stacking into a 2x2 grid).
+storage.hotbarSlot = (iconName, badgeNum, { compact = false, active = false } = {}) => {
+  const box = compact ? 52 : 64;
+  const bracketLen = compact ? 8 : 10;
+  const iconSize = compact ? 22 : 27;
+  const badgeSize = compact ? 15 : 17;
+  const badgeFontSize = compact ? 9 : 10;
+
+  const slot = storage.flexBoard("HotbarSlot", "row");
+  slot.resize(box, box);
+  slot.flex.alignItems = "center";
+  slot.flex.justifyContent = "center";
+  slot.flex.horizontalSizing = "fix";
+  slot.flex.verticalSizing = "fix";
+  storage.applyRadius(slot, "radius.sm");
+  slot.fills = [{ fillColor: active ? "#2a1a0d" : "#1a1b1e", fillOpacity: 1 }];
+
+  const ticks = storage.cornerBrackets(0, 0, box, box, { inset: 3, len: bracketLen, thick: 2 });
+  for (const { r, x, y } of ticks) {
+    slot.appendChild(r);
+    r.layoutChild.absolute = true;
+    penpotUtils.setParentXY(r, x, y);
+  }
+
+  const icon = storage.iconInstance(iconName, iconSize, "color.text.secondary");
+  slot.appendChild(icon);
+
+  const badge = storage.flexBoard("KeyBadge", "row");
+  badge.resize(badgeSize, badgeSize);
+  badge.flex.alignItems = "center";
+  badge.flex.justifyContent = "center";
+  badge.flex.horizontalSizing = "fix";
+  badge.flex.verticalSizing = "fix";
+  badge.fills = [{ fillColor: "#000000", fillOpacity: 0.55 }];
+  const badgeText = storage.text(String(badgeNum), { size: badgeFontSize, weight: "700", color: null });
+  badgeText.fills = [{ fillColor: "#909296", fillOpacity: 1 }];
+  badge.appendChild(badgeText);
+  slot.appendChild(badge);
+  badge.layoutChild.absolute = true;
+  penpotUtils.setParentXY(badge, 3, 3);
+
+  return slot;
+};
+
+storage.hotbarGroupPanel = (label, slotSpecs, { compact = false, maxRows = 2 } = {}) => {
+  const panel = storage.flexBoard("HotbarGroup", "column");
+  panel.flex.alignItems = "center";
+  panel.flex.rowGap = compact ? 6 : 8;
+  panel.flex.horizontalPadding = compact ? 8 : 14;
+  panel.flex.verticalPadding = compact ? 8 : 14;
+  panel.flex.horizontalSizing = "auto";
+  panel.flex.verticalSizing = "auto";
+  storage.applyRadius(panel, "radius.sm");
+  panel.fills = [{ fillColor: "#141517", fillOpacity: 0.68 }];
+  panel.shadows = [{ style: "drop-shadow", offsetX: 0, offsetY: 6, blur: 26, spread: 0, hidden: false, color: { color: "#000000", opacity: 0.5 } }];
+
+  const labelText = storage.text(label, { size: compact ? 9 : 10, weight: "700", color: null });
+  labelText.fills = [{ fillColor: "#878a91", fillOpacity: 1 }];
+  labelText.letterSpacing = 0.8;
+  panel.appendChild(labelText);
+
+  const columnsRow = storage.flexBoard("ColumnsRow", "row");
+  columnsRow.flex.alignItems = "start";
+  columnsRow.flex.columnGap = compact ? 6 : 8;
+  columnsRow.flex.horizontalSizing = "auto";
+  columnsRow.flex.verticalSizing = "auto";
+  columnsRow.fills = [];
+  panel.appendChild(columnsRow);
+
+  for (let i = 0; i < slotSpecs.length; i += maxRows) {
+    const col = storage.flexBoard("Column", "column");
+    col.flex.rowGap = compact ? 6 : 8;
+    col.flex.horizontalSizing = "auto";
+    col.flex.verticalSizing = "auto";
+    col.fills = [];
+    columnsRow.appendChild(col);
+    for (const spec of slotSpecs.slice(i, i + maxRows)) {
+      col.appendChild(storage.hotbarSlot(spec.icon, spec.badge, { compact, active: spec.active }));
+    }
+  }
+
+  return panel;
+};
+
+// Cheap version of a hotbar rebuild: clone the 3 already-built HotbarGroup
+// panels from a template board's hotbar (built once via rebuildHotbar) into
+// a target board's hotbar, instead of re-creating ~90 shapes from scratch.
+// The full from-scratch build was what kept freezing the tab under this
+// file's weight — cloning is a handful of cheap .clone() calls instead.
+storage.cloneHotbarGroups = async (templateBoardName, targetBoardName) => {
+  const templateBoard = penpotUtils.findShape(s => s.name === templateBoardName);
+  const templateHotbar = penpotUtils.findShape(s => s.name === "FloatingHotbar", templateBoard);
+  const target = penpotUtils.findShape(s => s.name === targetBoardName);
+  if (!target) return { targetBoardName, error: "target not found" };
+  const hotbar = penpotUtils.findShape(s => s.name === "FloatingHotbar", target);
+  if (!hotbar) return { targetBoardName, error: "hotbar not found" };
+  if (hotbar.children.some(c => c.name === "HotbarGroup")) return { targetBoardName, skipped: true };
+
+  const oldBottom = target.height - (hotbar.y - target.y) - hotbar.height;
+
+  for (const c of [...hotbar.children]) c.remove();
+  hotbar.fills = [];
+  hotbar.shadows = [];
+
+  const groups = templateHotbar.children.filter(c => c.name === "HotbarGroup");
+  for (const g of groups) {
+    const clone = g.clone();
+    hotbar.appendChild(clone);
+  }
+
+  await new Promise(r => setTimeout(r, 250));
+  const newX = target.width / 2 - hotbar.width / 2;
+  penpotUtils.setParentXY(hotbar, newX, target.height - hotbar.height - oldBottom);
+
+  return { targetBoardName, w: Math.round(hotbar.width), h: Math.round(hotbar.height) };
+};
+
+// Replaces a FloatingHotbar board's flat row of HotbarSlots with grouped
+// panels. groupsSpec: [{ label, slots: [{icon,badge,active}] }]. The board
+// itself loses its own background/shadow (each group panel now carries its
+// own), matching FloatingHotbar.tsx wrapping each group in its own GlassPanel.
+storage.rebuildHotbar = async (boardName, groupsSpec, compact) => {
+  const board = penpotUtils.findShape(s => s.name === boardName);
+  if (!board) return { boardName, error: "board not found" };
+  const hotbar = penpotUtils.findShape(s => s.name === "FloatingHotbar", board);
+  if (!hotbar) return { boardName, error: "hotbar not found" };
+
+  const oldX = hotbar.x - board.x;
+  const oldBottom = board.height - (hotbar.y - board.y) - hotbar.height;
+
+  for (const c of [...hotbar.children]) c.remove();
+  hotbar.fills = [];
+  hotbar.shadows = [];
+  hotbar.flex.columnGap = compact ? 8 : 10;
+  hotbar.flex.horizontalPadding = 0;
+  hotbar.flex.verticalPadding = 0;
+  hotbar.flex.alignItems = "start";
+
+  for (const group of groupsSpec) {
+    hotbar.appendChild(storage.hotbarGroupPanel(group.label, group.slots, { compact }));
+  }
+
+  await new Promise(r => setTimeout(r, 350));
+  storage.reseatIconsIn(hotbar);
+  const newX = board.width / 2 - hotbar.width / 2;
+  penpotUtils.setParentXY(hotbar, newX, board.height - hotbar.height - oldBottom);
+
+  return { boardName, w: Math.round(hotbar.width), h: Math.round(hotbar.height) };
+};
+
+// ---- v13: Map Notes button (HudIconButton) — an opaque 44x44 corner-
+// bracketed square, matching HudIconButton.tsx exactly (bg.app fill, no
+// border stroke, 10px/2px/3px corner brackets, 20px accent-colored icon).
+// Positioned bottom:132/right:20 of the screen, same on every board.
+storage.hudIconButton = (iconName) => {
+  const btn = storage.flexBoard("HudIconButton", "row");
+  btn.resize(44, 44);
+  btn.flex.alignItems = "center";
+  btn.flex.justifyContent = "center";
+  btn.flex.horizontalSizing = "fix";
+  btn.flex.verticalSizing = "fix";
+  storage.applyRadius(btn, "radius.sm");
+  storage.applyColor(btn, "color.bg.app");
+  btn.shadows = [{ style: "drop-shadow", offsetX: 0, offsetY: 3, blur: 16, spread: 0, hidden: false, color: { color: "#000000", opacity: 0.4 } }];
+  const icon = storage.iconInstance(iconName, 20, "color.accent.primary");
+  btn.appendChild(icon);
+  return btn;
+};
+
+storage.addHudIconButton = async (boardName, iconName) => {
+  const board = penpotUtils.findShape(s => s.name === boardName);
+  if (!board) return { boardName, error: "board not found" };
+  if (board.children.some(c => c.name === "HudIconButton")) return { boardName, skipped: true };
+  const btn = storage.hudIconButton(iconName);
+  board.appendChild(btn);
+  await new Promise(r => setTimeout(r, 150));
+  penpotUtils.setParentXY(btn, board.width - 20 - 44, board.height - 132 - 44);
+  storage.reseatIconsIn(btn);
+  return { boardName, x: Math.round(btn.x - board.x), y: Math.round(btn.y - board.y) };
+};
+
+// ---- v13: Annotations (Map Notes) drawer row — a colored marker dot (the
+// mod reports the player's own in-game map-marker color, not a fixed
+// category, per annotations.ts), the note's label, coordinates, and
+// distance from the player. Same card shell as storage.containerCard but
+// swaps the leading Lucide icon for a plain colored dot.
+storage.noteRow = (colorHex, label, coords, distance, width) => {
+  const card = storage.flexBoard("NoteRow", "row");
+  card.resize(width, 10);
+  card.flex.alignItems = "center";
+  card.flex.columnGap = 12;
+  card.flex.horizontalPadding = 14;
+  card.flex.verticalPadding = 12;
+  card.flex.horizontalSizing = "fix";
+  card.flex.verticalSizing = "auto";
+  storage.applyRadius(card, "radius.sm");
+  storage.applyColor(card, "color.bg.surface");
+  card.strokes = [{ strokeColor: "#373A40", strokeOpacity: 1, strokeWidth: 1, strokeAlignment: "inner" }];
+  card.applyToken(storage.tok("color.border.default"), ["strokeColor"]);
+
+  const dot = penpot.createEllipse();
+  dot.name = "MarkerDot";
+  dot.resize(14, 14);
+  dot.fills = [{ fillColor: colorHex, fillOpacity: 1 }];
+  dot.strokes = [{ strokeColor: "#ffffff", strokeOpacity: 0.7, strokeWidth: 1, strokeAlignment: "inner" }];
+  card.appendChild(dot);
+
+  const textCol = storage.flexBoard("TextCol", "column");
+  textCol.flex.rowGap = 2;
+  textCol.flex.horizontalSizing = "fill";
+  textCol.flex.verticalSizing = "auto";
+  textCol.fills = [];
+  const nameT = storage.text(label, { size: 13, weight: "600", color: "color.text.primary" });
+  textCol.appendChild(nameT);
+  const coordsT = storage.text(coords, { size: 11, weight: "400", color: "color.text.secondary" });
+  textCol.appendChild(coordsT);
+  if (distance) {
+    const distT = storage.text(distance, { size: 10, weight: "400", color: "color.text.secondary" });
+    distT.fills = distT.fills.map(f => ({ ...f, fillOpacity: 0.7 }));
+    textCol.appendChild(distT);
+  }
+  card.appendChild(textCol);
+  return card;
+};
+
+// Rebuilds a cloned WeaponSelect/SelectClothing drawer into the Annotations
+// (Map Notes) drawer: same chrome (corner brackets, Header, close button,
+// shadow) as the item drawers, but the CategoryChipRow (no fixed categories
+// for player-authored map notes) and ItemGrid are swapped for a flat list
+// of storage.noteRow cards sorted nearest-first, matching AnnotationsDrawer.tsx.
+storage.rebuildAnnotationsDrawer = async (board, notes) => {
+  const pad = 18;
+  const contentW = board.width - pad * 2;
+
+  const header = penpotUtils.findShape((s) => s.name === "Header", board);
+  const title = header.children.find((c) => c.type === "text");
+  title.characters = "MAP NOTES";
+
+  const oldSub = penpotUtils.findShape((s) => s.name === "DrawerSubtitle", board);
+  const oldChips = penpotUtils.findShape((s) => s.name === "CategoryChipRow", board);
+  const oldGrid = penpotUtils.findShape((s) => s.name === "ItemGrid", board);
+  if (oldChips) oldChips.remove();
+  if (oldGrid) oldGrid.remove();
+
+  let y = pad + header.height + 6;
+  if (oldSub) {
+    oldSub.characters = `${notes.length} notes`;
+    penpotUtils.setParentXY(oldSub, pad, y);
+  }
+  y += 26;
+
+  const list = storage.flexBoard("NotesList", "column");
+  list.flex.rowGap = 10;
+  list.flex.horizontalSizing = "fix";
+  list.flex.verticalSizing = "auto";
+  list.resize(contentW, 10);
+  list.fills = [];
+  board.appendChild(list);
+  for (const note of notes) {
+    list.appendChild(storage.noteRow(note.color, note.label, note.coords, note.distance, contentW));
+  }
+
+  await new Promise((r) => setTimeout(r, 400));
+  penpotUtils.setParentXY(list, pad, y);
+  await new Promise((r) => setTimeout(r, 200));
+};
+
+// ---- v13: ConditionCluster gains a second row (stress/panic/pain/boredom +
+// infected/bleeding flags) and swaps its thermometer mini-vital for stamina
+// (zap) — the mod never collected temperature so the app dropped it long
+// ago (see transformLiveState.ts), and the conditions row is genuinely new
+// content that predates this design catching up to it. Cluster itself was a
+// flex ROW of bare children (ticks aside); restructured to a flex COLUMN
+// wrapping a VitalsRow and a new ConditionsRow so the two rows can each
+// have their own gap. Corner-bracket ticks are absolute-positioned flex
+// children (layoutChild.absolute), so they don't participate in the reflow,
+// but they were sized for the old (shorter) panel — removed and rebuilt
+// against the panel's final auto-height once content settles.
+storage.upgradeConditionCluster = async (boardName, compact) => {
+  const board = penpotUtils.findShape(s => s.name === boardName);
+  if (!board) return { boardName, error: "board not found" };
+  const cluster = penpotUtils.findShape(s => s.name === "ConditionCluster", board);
+  if (!cluster) return { boardName, error: "cluster not found" };
+  if (cluster.children.some(c => c.name === "ConditionsRow")) return { boardName, skipped: true };
+
+  const ticks = cluster.children.filter(c => c.name === "BracketTick");
+  const heart = cluster.children.find(c => c.name === "heart");
+  const heartText = cluster.children.find(c => c.type === "text");
+  const minis = cluster.children.filter(c => c.name === "MiniVital");
+
+  const thermo = minis.find(m => m.children.some(c => c.name === "thermometer"));
+  if (thermo) {
+    const oldIcon = thermo.children.find(c => c.type === "board");
+    const size = oldIcon.width;
+    oldIcon.remove();
+    const zap = storage.iconInstance("zap", size, "color.text.secondary");
+    thermo.insertChild(0, zap);
+  }
+
+  for (const t of ticks) t.remove();
+
+  cluster.flex.dir = "column";
+  cluster.flex.rowGap = compact ? 6 : 10;
+
+  const vitalsRow = storage.flexBoard("VitalsRow", "row");
+  vitalsRow.flex.alignItems = "center";
+  vitalsRow.flex.columnGap = compact ? 10 : 16;
+  vitalsRow.flex.horizontalSizing = "auto";
+  vitalsRow.flex.verticalSizing = "auto";
+  vitalsRow.fills = [];
+  cluster.appendChild(vitalsRow);
+  vitalsRow.appendChild(heart);
+  vitalsRow.appendChild(heartText);
+  for (const m of minis) vitalsRow.appendChild(m);
+
+  const condRow = storage.flexBoard("ConditionsRow", "row");
+  condRow.flex.alignItems = "center";
+  condRow.flex.columnGap = compact ? 8 : 14;
+  condRow.flex.horizontalSizing = "auto";
+  condRow.flex.verticalSizing = "auto";
+  condRow.fills = [];
+  cluster.appendChild(condRow);
+
+  const divider = penpot.createRectangle();
+  divider.name = "Divider";
+  divider.resize(1, compact ? 14 : 18);
+  divider.fills = [{ fillColor: "#373A40", fillOpacity: 0.5 }];
+  condRow.appendChild(divider);
+
+  const miniCond = (iconName, value, severe) => {
+    const wrap = storage.flexBoard("MiniCond", "row");
+    wrap.flex.alignItems = "center";
+    wrap.flex.columnGap = compact ? 3 : 5;
+    wrap.flex.horizontalSizing = "auto";
+    wrap.flex.verticalSizing = "auto";
+    wrap.fills = [];
+    const color = severe ? "#fa5252" : value > 0 ? "#fcc419" : "#878a91";
+    const icon = storage.iconInstance(iconName, compact ? 15 : 18, null);
+    storage.tintIcon(icon, color);
+    wrap.appendChild(icon);
+    const t = storage.text(`${value}%`, { size: compact ? 12 : 13, weight: "600", color: null });
+    t.fills = [{ fillColor: color, fillOpacity: value > 0 ? 1 : 0.7 }];
+    wrap.appendChild(t);
+    return wrap;
+  };
+  const miniFlag = (iconName, active) => {
+    const color = active ? "#fa5252" : "#878a91";
+    return storage.iconInstance(iconName, compact ? 15 : 18, null);
+  };
+
+  condRow.appendChild(miniCond("brain", 20, false));
+  condRow.appendChild(miniCond("alert-triangle", 0, false));
+  condRow.appendChild(miniCond("activity", 65, true));
+  if (!compact) condRow.appendChild(miniCond("flame", 30, false));
+  const infectedIcon = storage.iconInstance("skull", compact ? 15 : 18, null);
+  storage.tintIcon(infectedIcon, "#878a91");
+  condRow.appendChild(infectedIcon);
+  const bleedingIcon = storage.iconInstance("droplet", compact ? 15 : 18, null);
+  storage.tintIcon(bleedingIcon, "#fa5252");
+  condRow.appendChild(bleedingIcon);
+
+  await new Promise(r => setTimeout(r, 250));
+  storage.reseatIconsIn(cluster);
+
+  const newTicks = storage.cornerBrackets(0, 0, cluster.width, cluster.height, { inset: 3, len: 12, thick: 2 });
+  for (const { r, x, y } of newTicks) {
+    cluster.appendChild(r);
+    // createRectangle() defaults layoutChild.absolute to false, so a plain
+    // appendChild into a flex board makes the tick a flow child that stacks
+    // into the column instead of floating over it (this is what blew the
+    // cluster's auto-height out to 212px the first time) — must force it.
+    r.layoutChild.absolute = true;
+    penpotUtils.setParentXY(r, x, y);
+  }
+
+  return { boardName, w: cluster.width, h: cluster.height };
 };
 
 // Rebuilds a WeaponSelect/SelectClothing drawer body in the Inventory
