@@ -18,7 +18,10 @@ local function containerName(container, fallback)
 end
 
 local function itemIcon(item, label)
-    local icon = safe(function() return item:getTex():getName() end, "", label)
+    local icon = safe(function()
+        local texture = item:getTex()
+        return texture and texture:getName() or ""
+    end, "", label)
     return icon or ""
 end
 

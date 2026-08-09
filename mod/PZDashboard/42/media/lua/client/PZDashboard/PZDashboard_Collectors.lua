@@ -16,7 +16,10 @@ local function itemSnapshot(item, label)
         name = safe(function() return item:getDisplayName() end, "", label .. ".name"),
         type = safe(function() return item:getFullType() end, "", label .. ".type"),
         -- Same lookup as inventory.item.icon - see the comment there.
-        icon = safe(function() return item:getTex():getName() end, "", label .. ".icon"),
+        icon = safe(function()
+            local texture = item:getTex()
+            return texture and texture:getName() or ""
+        end, "", label .. ".icon"),
         condition = safe(function() return item:getCondition() end, -1, label .. ".condition"),
         -- Varies per item (a knife's 10 isn't a shirt's 40), so the raw
         -- condition is only meaningful next to its own max.

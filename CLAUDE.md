@@ -34,8 +34,8 @@ rules below target those.
   need element uids to click.
 - **Chrome is agent-owned.** `chrome-devtools` MCP is configured with
   `--isolated` (and **no** `--browserUrl`) so the server launches its own
-  Chrome with a temp profile — never ask the user to open Chrome or run
-  `scripts/chrome-debug.sh` / port 9222. Use `new_page` / tools directly;
+  Chrome with a temp profile — never ask the user to open Chrome or use a
+  manual debug port. Use `new_page` / tools directly;
   if connect fails, fix MCP config or Chrome install, don't hand the user
   a manual debug-port checklist.
 - **Say when to `/clear`.** Session length dominates everything else: two
@@ -63,6 +63,11 @@ rules below target those.
   covers finding the actual live Zomboid data directory (native vs Proton,
   they differ), the source-vs-deployed mod split and Lua reload workflow,
   reading `console.txt`, and Build 42 API gotchas already paid for.
+  After changing mod files, deploy them with `bun scripts/deploy-mod.ts` from
+  repository root. It reads `PZ_LUA_DIR` from `server/.env.local`; use
+  `PZ_LUA_DIR=/path/to/Zomboid/Lua bun scripts/deploy-mod.ts` to override it.
+  Copying does not reload Lua: use F11 > Lua Debug > Reload Lua, reload the
+  save, or restart the game.
   `src/web/` is the frontend: React + Mantine, implementing the
   floating-glass-HUD design from Penpot (currently v3) — a fullscreen map
   Home screen and a Health/Equipment screen, each responsive between a

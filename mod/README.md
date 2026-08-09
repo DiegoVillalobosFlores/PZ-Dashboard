@@ -41,6 +41,13 @@ reliably picked up under Proton — copy instead):
 Enable "PZ Dashboard" from the in-game Mods menu (restart required), then
 adjust streaming options from **Options > Mods > PZ Dashboard**.
 
+For source changes during development, run `bun scripts/deploy-mod.ts` from the
+repository root. It reads `PZ_LUA_DIR` from `server/.env.local` and copies the
+source mod into the matching `Zomboid/mods/PZDashboard` directory. Override
+the target with `PZ_LUA_DIR=/path/to/Zomboid/Lua bun scripts/deploy-mod.ts`.
+Reload Lua with F11 > Lua Debug > Reload Lua, reload the save, or restart the
+game after deployment.
+
 ## Notable things learned getting this working
 
 - **Build 42 requires the versioned mod layout**: `mod.info` and `media/` go
