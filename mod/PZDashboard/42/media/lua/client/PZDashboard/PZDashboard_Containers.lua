@@ -40,7 +40,7 @@ function PZDashboard.Containers.enumerate(player)
     table.insert(records, {
         id = "player",
         kind = "player",
-        name = safe(function() return getText("IGUI_InventoryName") end, "Inventory", "containers.playerName"),
+        name = safe(function() return getText("IGUI_InventoryTooltip") end, "Inventory", "containers.playerName"),
         type = "player",
         icon = "",
         x = px, y = py, z = pz,
@@ -88,7 +88,7 @@ function PZDashboard.Containers.enumerate(player)
                             type = safe(function() return container:getType() end, "", "containers.objectType"),
                             icon = "",
                             x = sx, y = sy, z = sz,
-                            locked = safe(function() return object:isLocked() end, false, "containers.objectLocked"),
+                            locked = isLockable(object) and safe(function() return object:isLocked() end, false, "containers.objectLocked") or false,
                             container = container,
                         })
                     end
@@ -173,6 +173,7 @@ function PZDashboard.Containers.itemsOf(entry, label)
     end
 
     local snapshots = {}
+    local player = getSpecificPlayer(0)
     for _, item in ipairs(list) do
         local displayCategory, categoryLabel = itemCategory(item)
         table.insert(snapshots, {
@@ -187,6 +188,10 @@ function PZDashboard.Containers.itemsOf(entry, label)
             category = safe(function() return item:getCategory() end, "", label .. ".category"),
             displayCategory = displayCategory,
             categoryLabel = categoryLabel,
+            equipped = safe(function() return item:isEquipped() end, false, label .. ".equipped")
+                or (player ~= nil and safe(function() return player:isEquipped(item) end, false, label .. ".handEquipped"))
+                or (player ~= nil and safe(function() return player:isAttachedItem(item) end, false, label .. ".attached"))
+                or false,
             bodyLocation = safe(function()
                 if not instanceof(item, "Clothing") then return "" end
                 return item:getBodyLocation()

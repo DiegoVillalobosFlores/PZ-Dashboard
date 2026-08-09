@@ -6,28 +6,18 @@ local trackedVehicles = {}
 
 local itemCategory = PZDashboard.Util.itemCategory
 
--- One shape for every item the dashboard shows in an equipment slot - hand
--- items, hotbar attachments and worn clothing all go through this, so the
--- UI can render all three with a single tile component instead of three
--- payloads that drift apart. Returns nil for an empty slot.
 local function itemSnapshot(item, label)
     if not item then return nil end
     local snapshot = {
         name = safe(function() return item:getDisplayName() end, "", label .. ".name"),
         type = safe(function() return item:getFullType() end, "", label .. ".type"),
-        -- Same lookup as inventory.item.icon - see the comment there.
         icon = safe(function()
             local texture = item:getTex()
             return texture and texture:getName() or ""
         end, "", label .. ".icon"),
         condition = safe(function() return item:getCondition() end, -1, label .. ".condition"),
-        -- Varies per item (a knife's 10 isn't a shirt's 40), so the raw
-        -- condition is only meaningful next to its own max.
         conditionMax = safe(function() return item:getConditionMax() end, -1, label .. ".conditionMax"),
     }
-    -- getCurrentAmmoCount/getMaxAmmo live on HandWeapon and are meaningless
-    -- on anything that isn't a firearm, so gate on isRanged() rather than
-    -- letting safe() swallow an error per tick for every melee weapon.
     local ranged = safe(function()
         return instanceof(item, "HandWeapon") and item:isRanged()
     end, false, label .. ".ranged")
@@ -72,6 +62,8 @@ function PZDashboard.Collectors.map(player)
         x = safe(function() return player:getX() end, 0, "map.x"),
         y = safe(function() return player:getY() end, 0, "map.y"),
         z = safe(function() return player:getZ() end, 0, "map.z"),
+        dirX = safe(function() return player:getForwardDirection():getX() end, 0, "map.dirX"),
+        dirY = safe(function() return player:getForwardDirection():getY() end, 1, "map.dirY"),
         safehouse = safe(function() return SafeHouse.hasSafehouse(player) end, false, "map.safehouse"),
         inVehicle = safe(function() return player:getVehicle() ~= nil end, false, "map.inVehicle"),
     }
@@ -123,15 +115,6 @@ function PZDashboard.Collectors.vehicles(player)
 end
 
 
--- The world map's player-placed symbols/notes live behind UIWorldMap's Java
--- API (mapAPI:getSymbolsAPIv2()), which is only reachable through a
--- UIWorldMap instance - there's no standalone accessor. Rather than pulling
--- in the whole ISWorldMap UI (buttons, tabs, etc.) just to reach that API,
--- this builds the same bare, never-shown handle the vanilla client itself
--- uses for headless map queries (see ISWorldMap.lua's getStashMapBounds:
--- `local ui = {}; ui.javaObject = UIWorldMap.new(ui)`). It's created once
--- and cached, since it's never added to the UIManager and so never renders
--- or receives input.
 local annotationsMapUI = nil
 
 local function getAnnotationsSymbolsAPI()
@@ -146,10 +129,6 @@ local function getAnnotationsSymbolsAPI()
     return annotationsMapUI.mapAPI:getSymbolsAPIv2()
 end
 
--- Reports only the player's own hand-placed markers/notes (symbol:isUserDefined()),
--- not the map's built-in default annotations (town/POI labels baked into
--- worldmap-annotations.lua and loaded by initDefaultAnnotations - those
--- would just duplicate the base map render).
 function PZDashboard.Collectors.annotations(player)
     local symbolsAPI = safe(getAnnotationsSymbolsAPI, nil, "annotations.symbolsAPI")
     local markers = {}
@@ -180,11 +159,6 @@ function PZDashboard.Collectors.annotations(player)
     return { markers = markers }
 end
 
--- Every reachable container in one payload: the player's own inventory, the
--- bags they carry, the crates/corpses/dropped bags within the vanilla loot
--- radius, and the ground. Identity lives in PZDashboard_Containers so that
--- the ids the dashboard sends back to moveItems resolve against exactly the
--- enumeration that produced them.
 function PZDashboard.Collectors.containers(player)
     local records = PZDashboard.Containers.enumerate(player)
     local containers = {}
@@ -200,31 +174,18 @@ function PZDashboard.Collectors.containers(player)
             z = entry.z,
             locked = entry.locked,
             weight = entry.container and safe(function() return entry.container:getCapacityWeight() end, 0, "containers.weight") or 0,
-            -- getCapacity(), not getEffectiveCapacity(): this is the number the
-            -- engine's own room check compares against
-            -- (ISInventoryTransferAction.lua:889), so the dashboard's "no room"
-            -- prediction matches the verdict the transfer will reach. The floor
-            -- has no capacity at all and reports -1.
-            capacity = entry.container and safe(function() return entry.container:getCapacity() end, -1, "containers.capacity") or -1,
+            capacity = (entry.kind == "player"
+                and safe(function() return player:getMaxWeight() end, -1, "containers.playerCapacity"))
+                or (entry.container and safe(function() return entry.container:getCapacity() end, -1, "containers.capacity"))
+                or -1,
             items = PZDashboard.Containers.itemsOf(entry, "containers.item"),
         })
     end
-    -- Only the fields above ever reach the writer: an enumeration record also
-    -- carries the live ItemContainer and, for the floor, a map of world
-    -- objects - Java userdata that Json.Encode would turn into null.
     return { containers = containers }
 end
 
--- PZ's skill ceiling; getTotalXpForLevel() has no defined answer past it.
 local MAX_PERK_LEVEL = 10
 
--- PerkFactory.PerkList mixes the real skills in with the category rows they
--- hang under ("Combat - Melee", "Crafting", ...), and a category is exactly
--- an entry whose parent is Perks.None - the same test ISCharacterInfo.lua
--- uses to build the in-game skills tab. Drop those and tag each real skill
--- with its parent's id and name instead, so the dashboard groups skills the
--- way the game does without hardcoding a roster that Build 42 keeps adding
--- to (Carving, Masonry, Pottery, Tracking, ... didn't exist in 41).
 function PZDashboard.Collectors.skills(player)
     local perks = {}
     for i = 0, PerkFactory.PerkList:size() - 1 do
@@ -240,15 +201,9 @@ function PZDashboard.Collectors.skills(player)
                 name = safe(function() return perk:getName() end, "", "skills.name"),
                 category = parentPerk and safe(function() return parentPerk:getType():toString() end, "", "skills.category") or "",
                 categoryName = parentPerk and safe(function() return parentPerk:getName() end, "", "skills.categoryName") or "",
-                -- Fitness and Strength: raised by traits and exercise rather
-                -- than by earning XP, so the UI shouldn't show them creeping
-                -- toward a next level the way a trainable skill does.
                 passive = safe(function() return perk:isPassiv() end, false, "skills.passive"),
                 level = level,
                 xp = safe(function() return player:getXp():getXP(perkType) end, 0, "skills.xp"),
-                -- Cumulative XP thresholds bracketing the current level, so
-                -- the dashboard can show progress through it without carrying
-                -- a copy of PZ's per-skill XP curve. Equal at level 10.
                 xpLevelStart = safe(function() return perk:getTotalXpForLevel(level) end, 0, "skills.xpLevelStart"),
                 xpLevelEnd = safe(function() return perk:getTotalXpForLevel(nextLevel) end, 0, "skills.xpLevelEnd"),
             })
@@ -257,9 +212,6 @@ function PZDashboard.Collectors.skills(player)
     return { perks = perks }
 end
 
--- Build 42 reworked hotbar/attachment slots; this is the collector most
--- likely to need adjustment against the in-game Lua IDE if slots come back
--- empty. Primary/secondary hand items are the stable part of this snapshot.
 function PZDashboard.Collectors.toolbar(player)
     local attachedSlots = {}
     local attached = safe(function() return player:getAttachedItems() end, nil, "toolbar.attached")
@@ -285,13 +237,6 @@ function PZDashboard.Collectors.toolbar(player)
     }
 end
 
--- Everything the player is currently wearing, tagged with the game's own
--- body-location string (ItemBodyLocation.*, e.g. "Hat"/"Jacket"/"Shoes").
--- Reported raw rather than pre-bucketed into the dashboard's seven paperdoll
--- slots: PZ has ~110 locations and deciding which one *represents* a slot
--- (jacket over t-shirt, say) is a presentation call, so that mapping lives
--- in the UI (src/web/lib/equipment.ts) where changing it doesn't need a Lua
--- reload.
 function PZDashboard.Collectors.equipment(player)
     local worn = {}
     local wornItems = safe(function() return player:getWornItems() end, nil, "equipment.wornItems")
@@ -309,12 +254,6 @@ function PZDashboard.Collectors.equipment(player)
     return { worn = worn }
 end
 
--- Reports the character's appearance as ids, not paths: which ClothingItem
--- each garment is and which of its texture choices is selected, plus the
--- hair/beard style names. The server owns the translation to actual model
--- and texture files, because that means reading the game's own
--- clothingItems/*.xml and hairStyles.xml rather than reimplementing their
--- lookup rules here, where they'd have to be kept in sync by hand.
 local function colorTable(color)
     if not color then return nil end
     return {
@@ -333,10 +272,6 @@ function PZDashboard.Collectors.appearance(player)
 
     if visual then
         appearance.skinTextureIndex = safe(function() return visual:getSkinTextureIndex() end, 1, "appearance.skinTextureIndex")
-        -- Authoritative where it exists, letting the server skip its
-        -- index-to-name guess. Deliberately a bare pcall rather than safe():
-        -- on a build without the getter this is expected to fail, and safe()
-        -- would print that to console.txt every single collection.
         local hasName, skinTexture = pcall(function() return visual:getSkinTexture() end)
         if hasName and type(skinTexture) == "string" and skinTexture ~= "" then
             appearance.skinTexture = skinTexture
@@ -353,18 +288,11 @@ function PZDashboard.Collectors.appearance(player)
             local item = safe(function() return wornItems:get(i):getItem() end, nil, "appearance.item")
             local clothingItem = item and safe(function() return item:getClothingItem() end, nil, "appearance.clothingItem")
             if clothingItem then
-                -- Mirrors CharacterCreationMain:updateClothingTextureCombo -
-                -- a garment with a mesh indexes into textureChoices, a
-                -- texture-only one into baseTextures. Getting this backwards
-                -- silently picks the wrong colourway.
                 local hasModel = safe(function() return clothingItem:hasModel() end, false, "appearance.hasModel")
                 local itemVisual = safe(function() return item:getVisual() end, nil, "appearance.itemVisual")
                 table.insert(appearance.worn, {
                     clothingItem = safe(function() return item:getClothingItemName() end, "", "appearance.clothingItemName"),
                     name = safe(function() return item:getDisplayName() end, "", "appearance.name"),
-                    -- tostring'd because getLocation() hands back a
-                    -- BodyLocation object, not a string, and the JSON encoder
-                    -- writes any object it doesn't understand as null.
                     location = safe(function() return tostring(wornItems:get(i):getLocation()) end, "", "appearance.location"),
                     hasModel = hasModel,
                     textureChoice = itemVisual and safe(function() return itemVisual:getTextureChoice() end, 0, "appearance.textureChoice") or 0,
