@@ -7,3 +7,5 @@ dist/
 *.tsbuildinfo
 .idea
 .DS_Store
+server/public/game-icons/
+server/public/item-icons/
