@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMediaQuery } from '@mantine/hooks';
+import { Car, Navigation } from 'lucide-react';
 import { Icon } from './Icon';
 import { HudIconButton } from './HudIconButton';
 import {
@@ -26,29 +27,15 @@ const PIN_COLOR: Record<MapPin['kind'], string> = {
 };
 
 const ROUTE_COLOR = '#000000';
-// Pointer-up movement under this counts as a click (set destination) rather
-// than the drag that just ended - real touches/mice rarely land back on the
-// exact start pixel even when the user meant a tap.
 const CLICK_MOVE_THRESHOLD_PX = 6;
 
 type WorldPoint = { x: number; y: number };
 
-// World squares spanning the (square) viewBox - how much of the map is
-// visible at once. Roughly matches the in-game map's default zoom, close
-// enough to read street names and see individual buildings. Interactive
-// zoom (wheel/pinch) moves this between the two bounds below.
 const DEFAULT_ZOOM_SQUARES = 320;
 const MIN_ZOOM_SQUARES = 40;
 const MAX_ZOOM_SQUARES = 2200;
 
-// The mod samples the player's position on a fixed interval (0.5s for the
-// "map" category), so raw snapshots make the marker teleport between fixes
-// rather than move. These control the easing that fills the gaps - see
-// useSmoothedPoint below.
-const SMOOTHING_TIME_CONSTANT_MS = 180;
-// Past this, the player didn't walk there: fast travel, a respawn, or simply
-// the first fix after a reconnect. Jump straight to it instead of gliding the
-// marker across the county.
+const SMOOTHING_TIME_CONSTANT_MS = 120;
 const SNAP_DISTANCE_SQUARES = 40;
 
 function clamp(value: number, min: number, max: number): number {
@@ -72,16 +59,9 @@ function pointerMidpoint(a: WorldPoint, b: WorldPoint): WorldPoint {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-// Eases a point toward each new sample on requestAnimationFrame so discrete
-// position fixes render as continuous movement, the same way a GPS map keeps
-// the arrow gliding between updates. Exponential (rather than fixed-duration)
-// easing means a fix arriving early, late, or not at all just changes how far
-// the point has converged - there's no timeline to fall out of sync with.
 function useSmoothedPoint(target: WorldPoint | null): WorldPoint | null {
   const [point, setPoint] = useState<WorldPoint | null>(target);
   const pointRef = useRef<WorldPoint | null>(target);
-  // Read inside the animation loop so a fix landing mid-flight retargets the
-  // in-progress glide instead of being ignored until the loop restarts.
   const targetRef = useRef<WorldPoint | null>(target);
   targetRef.current = target;
 
@@ -105,15 +85,9 @@ function useSmoothedPoint(target: WorldPoint | null): WorldPoint | null {
       previousMs = nowMs;
       const from = pointRef.current!;
       const to = targetRef.current!;
-      // Frame-rate independent: the fraction of the remaining gap closed
-      // scales with elapsed time, so a 30Hz display eases at the same speed
-      // as a 144Hz one.
       const t = 1 - Math.exp(-elapsed / SMOOTHING_TIME_CONSTANT_MS);
       const eased = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
 
-      // Sub-tenth-of-a-square is well under a pixel at every zoom level -
-      // settle exactly on the target and stop burning frames until the next
-      // fix arrives.
       if (pointerDistance(eased, to) < 0.1) {
         pointRef.current = to;
         setPoint(to);
@@ -167,9 +141,6 @@ export function MapCanvas({
   region?: string;
   pins?: MapPin[];
 }) {
-  // Position and annotations are read straight off the shared socket rather
-  // than passed down, so this component keeps its pan/zoom and easing state
-  // for the life of the app instead of resetting whenever a screen changes.
   const position = useGameSubscription('map:position', (msg) =>
     msg.category === 'map' ? msg.data : undefined,
   );
@@ -182,46 +153,29 @@ export function MapCanvas({
 
   const [data, setData] = useState<VectorMapData | null>(null);
   const [zoomSquares, setZoomSquares] = useState(DEFAULT_ZOOM_SQUARES);
-  // Non-null once the player has panned/zoomed away from live tracking -
-  // Google Maps style "you've moved the map" mode. Cleared by the recenter
-  // button, which resumes following the live player position.
   const [manualCenter, setManualCenter] = useState<WorldPoint | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  // The floating recenter/clear-route/map-notes buttons stack up the right
-  // edge of an already tight mobile screen, so mobile only shows them on the
-  // map screen itself (no ScreenModal open) - once a screen modal like
-  // Inventory or Health covers the map, there's nothing for them to act on.
   const isWide = useMediaQuery('(min-width: 900px)');
   const { isModalOpen } = useModalContext();
   const showMapButtons = isWide || !isModalOpen;
-  // Set by clicking the map - a chosen destination to route to from the
-  // live player position. Cleared by the "clear route" button.
   const [destination, setDestination] = useState<WorldPoint | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[] | null>(null);
-  // True when no road path could be found (disconnected street graph) and
-  // routePoints is a straight-line fallback instead of an actual route.
   const [routeIsDirect, setRouteIsDirect] = useState(false);
 
   const liveCenter = position ? { x: position.x, y: position.y } : null;
-  // The drawn position glides between fixes; the marker and (while
-  // following) the viewport both ride it.
   const smoothedCenter = useSmoothedPoint(liveCenter);
+  const smoothedDir = useSmoothedPoint(
+    position?.dirX !== undefined && position.dirY !== undefined
+      ? { x: position.dirX * 100, y: position.dirY * 100 }
+      : null,
+  );
+  const headingDeg = smoothedDir
+    ? (Math.atan2(smoothedDir.x, -smoothedDir.y) * 180) / Math.PI - 45
+    : 0;
   const center = manualCenter ?? smoothedCenter;
-  // Vector-tile fetching deliberately keys off the *raw* position instead.
-  // Its effect is debounced by 150ms, and the smoothed center changes every
-  // animation frame while the player walks - which would reset that debounce
-  // before it could ever fire, so the map would stop loading new geometry
-  // exactly when it's needed most. The raw position changes twice a second.
   const fetchCenter = manualCenter ?? liveCenter;
 
-  // A state (not a plain ref) specifically so the wheel-binding effect
-  // below re-runs once this actually mounts - the container is behind the
-  // `!center || !data` early return, so on first paint (before live state
-  // arrives) there is no DOM node yet for a plain ref to have captured.
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
-  // Mirrors the latest center/zoom into refs so the native wheel listener
-  // (bound once) and pointer handlers always read current values without
-  // needing to rebind on every state change.
   const centerRef = useRef(center);
   centerRef.current = center;
   const zoomRef = useRef(zoomSquares);
@@ -235,9 +189,6 @@ export function MapCanvas({
     | null
   >(null);
 
-  // Applies a zoom step anchored at a screen point (cursor or pinch
-  // midpoint) so that world point stays fixed on screen while the view
-  // scales around it - the same feel as Google Maps' scroll-to-zoom.
   function zoomAt(clientX: number, clientY: number, factor: number, rect: DOMRect) {
     const current = centerRef.current;
     if (!current) return;
@@ -273,9 +224,6 @@ export function MapCanvas({
     }
   });
 
-  // Bound once as a native (non-passive) listener - React's synthetic
-  // onWheel can end up attached passively, which silently drops
-  // preventDefault and lets the page itself scroll while zooming the map.
   useEffect(() => {
     if (!containerEl) return;
     const handler = (e: WheelEvent) => {
@@ -293,10 +241,6 @@ export function MapCanvas({
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
-      // Keeps pointermove targeted at this element while dragging off its
-      // bounds (e.g. over a HUD overlay) - if the browser rejects capture
-      // for this id, panning still works for movement that stays over the
-      // map itself, so this is safe to no-op rather than break the drag.
     }
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     setIsDragging(true);
@@ -339,9 +283,6 @@ export function MapCanvas({
       const mid = pointerMidpoint(a!, b!);
       const nextZoom = clamp((gesture.startZoom * gesture.startDistance) / distance, MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES);
 
-      // Keep the world point under the pinch's starting midpoint fixed,
-      // then layer on however far the midpoint itself has since moved
-      // (so a pinch can pan and zoom in the same gesture).
       const uppStart = gesture.startZoom / span;
       const anchorWorldX = gesture.startCenter.x + (gesture.startMid.x - rect.left - rect.width / 2) * uppStart;
       const anchorWorldY = gesture.startCenter.y + (gesture.startMid.y - rect.top - rect.height / 2) * uppStart;
@@ -369,31 +310,16 @@ export function MapCanvas({
       gestureRef.current = null;
       setIsDragging(false);
     } else if (pointersRef.current.size === 1 && centerRef.current) {
-      // Downgraded from a pinch to one remaining finger - restart the pan
-      // from its current position so the view doesn't jump.
       const p = pointersRef.current.values().next().value as WorldPoint;
       gestureRef.current = { mode: 'pan', startClientX: p.x, startClientY: p.y, startCenter: centerRef.current };
     }
   }
 
   function handleDoubleClick(e: React.MouseEvent<HTMLDivElement>) {
-    // The recenter button unmounts the instant it's clicked (its
-    // `manualCenter &&` condition goes false), so a quick second click -
-    // e.g. someone clicking it again because the first click's effect
-    // wasn't obvious - lands on the bare map at the same spot underneath.
-    // The browser still pairs that with the first click as a native
-    // dblclick *on the map*, since double-click detection is purely
-    // time/position based and doesn't care that the first click actually
-    // hit a different (now-gone) element. Ignore double-clicks that land
-    // right after a recenter click so that stray pairing can't zoom.
     if (Date.now() - recenterClickedAtRef.current < 500) return;
     zoomAt(e.clientX, e.clientY, 0.5, e.currentTarget.getBoundingClientRect());
   }
 
-  // Fetches a generous margin around the current view and reuses it while
-  // panning/zooming stays inside that cached window, only re-querying the
-  // server once the visible viewport would spill outside what's cached -
-  // the same "load once, pan freely" model tiled map apps use.
   const fetchedBoundsRef = useRef<{ region: string; x1: number; y1: number; x2: number; y2: number } | null>(null);
 
   useEffect(() => {
@@ -418,8 +344,6 @@ export function MapCanvas({
       y2: fetchCenter.y + half + padding,
     };
     let cancelled = false;
-    // Debounced so a drag or pinch in progress (many rapid center/zoom
-    // changes) doesn't fire a request per frame.
     const timer = setTimeout(() => {
       queryVectorMap(region, next.x1, next.y1, next.x2, next.y2).then((result) => {
         if (cancelled) return;
@@ -433,9 +357,6 @@ export function MapCanvas({
     };
   }, [region, fetchCenter?.x, fetchCenter?.y, zoomSquares]);
 
-  // Recomputes whenever the destination changes or the player walks (the
-  // raw, twice-a-second position - not the per-frame smoothed one, which
-  // would fire a request every animation frame while moving).
   useEffect(() => {
     if (!destination || !liveCenter) {
       setRoutePoints(null);
@@ -449,9 +370,6 @@ export function MapCanvas({
         setRoutePoints(result.points);
         setRouteIsDirect(false);
       } else {
-        // No road path in the streets graph between these points (e.g. an
-        // isolated trail) - a straight line is still more useful than
-        // nothing.
         setRoutePoints([liveCenter, destination]);
         setRouteIsDirect(true);
       }
@@ -464,12 +382,6 @@ export function MapCanvas({
   const labelSize = zoomSquares / 34;
   const placeLabelSize = zoomSquares / 16;
 
-  // The terrain is thousands of polygons and depends only on the fetched
-  // data and the zoom level - neither of which changes while the player
-  // walks. Memoizing it keeps the per-frame work of following a moving
-  // player down to a viewBox string and one <circle>, instead of rebuilding
-  // (and re-filtering, once per draw layer) the whole basemap 60 times a
-  // second.
   const basemap = useMemo(() => {
     if (!data) return null;
 
@@ -530,9 +442,6 @@ export function MapCanvas({
     );
   }, [data, labelSize, placeLabelSize]);
 
-  // No live position and no manual pan yet (server hasn't sent a "map"
-  // snapshot) - keep the HUD from looking broken while connecting, same
-  // fallback pattern used for vitals/hotbar in HomeScreen.
   if (!center || !data) return <PlaceholderGrid pins={pins ?? []} />;
 
   const half = zoomSquares / 2;
@@ -598,17 +507,17 @@ export function MapCanvas({
             </text>
           ))}
         {vehicles?.map((vehicle) => (
-          <circle
+          <Car
             key={`vehicle-${vehicle.id}`}
-            cx={vehicle.x}
-            cy={vehicle.y}
-            r={zoomSquares / 70}
-            fill={vehicle.current ? PIN_COLOR.player : 'var(--color-warning)'}
-            stroke="white"
-            strokeWidth={zoomSquares / 900}
+            x={vehicle.x - zoomSquares / 70}
+            y={vehicle.y - zoomSquares / 70}
+            width={zoomSquares / 35}
+            height={zoomSquares / 35}
+            color={vehicle.current ? PIN_COLOR.player : 'var(--color-warning)'}
+            strokeWidth={2.5}
           >
             <title>{vehicle.name}</title>
-          </circle>
+          </Car>
         ))}
 
 
@@ -636,26 +545,23 @@ export function MapCanvas({
         )}
 
         {smoothedCenter && (
-          <circle
-            cx={smoothedCenter.x}
-            cy={smoothedCenter.y}
-            r={zoomSquares / 55}
-            fill={PIN_COLOR.player}
-            stroke="white"
-            strokeWidth={zoomSquares / 500}
-          />
+          <g
+            transform={`translate(${smoothedCenter.x} ${smoothedCenter.y}) rotate(${headingDeg}) scale(${zoomSquares / 500})`}
+          >
+            <Navigation
+              width={24}
+              height={24}
+              x={-12}
+              y={-12}
+              fill={PIN_COLOR.player}
+              color="white"
+              strokeWidth={1.5}
+            />
+          </g>
         )}
       </svg>
 
       {showMapButtons && manualCenter && (
-        // Stops every pointer/click event type here from bubbling into the
-        // map container's own pan/zoom handlers - without this, a real
-        // click's pointerdown/up (which still bubble even though React's
-        // onClick fires afterward) register as a zero-movement pan, and
-        // since this button unmounts the instant it's clicked, a quick
-        // second click lands on the bare map underneath and reads as a
-        // double-click there - triggering double-click-to-zoom instead of
-        // (or in addition to) recentering.
         <div
           style={{ position: 'absolute', right: 20, bottom: 'calc(var(--hud-hotbar-inset) + 68px)' }}
           onPointerDown={(e) => e.stopPropagation()}
@@ -675,12 +581,6 @@ export function MapCanvas({
       )}
 
       {showMapButtons && destination && (
-        // Same event-isolation reasoning as the recenter button above. Stacks
-        // above whichever of the fixed right-edge buttons is currently
-        // showing: HudShell's "Map notes" always occupies hotbar-inset+12,
-        // and the recenter button above adds another 56px while manualCenter
-        // is set - so this one takes hotbar-inset+68 normally, or +124 when
-        // it'd otherwise land on top of recenter.
         <div
           style={{
             position: 'absolute',
