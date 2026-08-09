@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import useSWRSubscription from 'swr/subscription';
 import { wsUrl } from './api';
-import type { CategoryMap } from './liveTypes';
+import type { CategoryMap, ConnectionSnapshot } from './liveTypes';
 
 export type GameCategory = keyof CategoryMap;
 
@@ -14,6 +14,7 @@ export type GameStateMessage = {
 
 type MessageListener = (msg: GameStateMessage) => void;
 type ConnectionListener = (connected: boolean) => void;
+type ServerConnectionListener = (snapshot: ConnectionSnapshot) => void;
 
 const RECONNECT_DELAY_MS = 2000;
 // Grace period before tearing down a socket nothing is subscribed to. React
@@ -21,12 +22,17 @@ const RECONNECT_DELAY_MS = 2000;
 // the last subscriber - takes the ref count to 0 and straight back to 1;
 // without this the socket would close and reconnect on every one of those.
 const IDLE_CLOSE_DELAY_MS = 1000;
+// The mod's fastest collector (map position) writes every 500ms, so a few
+// missed cycles is the shortest gap that isn't just write jitter.
+const MOD_TIMEOUT_MS = 3000;
+const MOD_POLL_MS = 1000;
 
 // One socket for the whole app, shared by every subscription. `useSWRSubscription`
 // ref-counts *per key*, so each distinct key runs its own subscribe(); routing
 // them all through this module is what keeps that to a single connection.
 const messageListeners = new Set<MessageListener>();
 const connectionListeners = new Set<ConnectionListener>();
+const serverConnectionListeners = new Set<ServerConnectionListener>();
 
 // Last snapshot seen per category. The server replays every category when a
 // socket opens, but the socket now outlives any individual screen - a
@@ -38,9 +44,12 @@ const latest = new Map<GameCategory, GameStateMessage>();
 
 let socket: WebSocket | null = null;
 let connected = false;
+let serverConnection: ConnectionSnapshot = { connected: false, modConnected: false, updatedAt: 0 };
+let lastStateAt = 0;
 let refCount = 0;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 let idleCloseTimer: ReturnType<typeof setTimeout> | undefined;
+let modPollTimer: ReturnType<typeof setInterval> | undefined;
 
 export function randomId(): string {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -55,6 +64,18 @@ function setConnected(next: boolean) {
   if (connected === next) return;
   connected = next;
   for (const listener of [...connectionListeners]) listener(next);
+  publishServerConnection();
+}
+
+// The mod is "connected" if fresh game data landed recently. Nothing on the
+// wire says so: the server holds its last snapshot forever and happily replays
+// it to a browser opened hours after the game closed, so liveness is measured
+// here from the arrival of state the client hasn't already seen.
+function publishServerConnection() {
+  const modConnected = connected && Date.now() - lastStateAt < MOD_TIMEOUT_MS;
+  if (serverConnection.connected === connected && serverConnection.modConnected === modConnected) return;
+  serverConnection = { connected, modConnected, updatedAt: lastStateAt };
+  for (const listener of [...serverConnectionListeners]) listener(serverConnection);
 }
 
 function connect() {
@@ -78,6 +99,10 @@ function connect() {
       data: raw.data,
       updatedAt: raw.updatedAt ?? Date.now(),
     } as GameStateMessage;
+    if (latest.get(msg.category)?.updatedAt !== msg.updatedAt) {
+      lastStateAt = Date.now();
+      publishServerConnection();
+    }
     latest.set(msg.category, msg);
     for (const listener of [...messageListeners]) listener(msg);
   };
@@ -187,6 +212,26 @@ export function useGameConnection(): boolean {
   });
 
   return data ?? false;
+}
+
+export function useServerConnection(): ConnectionSnapshot {
+  const { data } = useSWRSubscription<ConnectionSnapshot, Error, string>('game:server-connection', (_key, { next }) => {
+    const receive: ServerConnectionListener = (value) => next(null, value);
+    retain();
+    serverConnectionListeners.add(receive);
+    // Going stale is the absence of messages, so only a timer can notice it.
+    modPollTimer ??= setInterval(publishServerConnection, MOD_POLL_MS);
+    receive(serverConnection);
+    return () => {
+      serverConnectionListeners.delete(receive);
+      if (!serverConnectionListeners.size) {
+        clearInterval(modPollTimer);
+        modPollTimer = undefined;
+      }
+      release();
+    };
+  });
+  return data ?? serverConnection;
 }
 
 /**

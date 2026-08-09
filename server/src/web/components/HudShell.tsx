@@ -9,6 +9,7 @@ import { MapCanvas } from './MapCanvas';
 import { MOBILE_NAV_HEIGHT, QuickNav, useCurrentDestinationId } from './QuickNav';
 import { mockMapPins } from '../mock/gameState';
 import { ModalProvider, useModalContext } from './ModalContext';
+import { useServerConnection } from '../lib/gameSocket';
 
 const HOTBAR_CLEARANCE = 16;
 // compact matches the single-row mobile ConditionCluster's height (~57px)
@@ -27,10 +28,11 @@ function HudShellInner() {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const hotbarRef = useRef<HTMLDivElement | null>(null);
   const { isModalOpen } = useModalContext();
+  const connection = useServerConnection();
   // Mobile hotbar always clears the persistent bottom tab bar; the wide
   // layout has no bottom bar (nav lives in the left rail) so it only needs
   // to clear the screen edge.
-  const hotbarBottom = isWide ? (isModalOpen ? 4 : 40) : MOBILE_NAV_HEIGHT + (isModalOpen ? 4 : 10);
+  const hotbarBottom = isWide ? 40 : MOBILE_NAV_HEIGHT + 10;
   const hotbarForcedSingleRow = isModalOpen;
 
   useEffect(() => {
@@ -63,6 +65,9 @@ function HudShellInner() {
       } as CSSProperties}
     >
       <MapCanvas pins={mockMapPins} />
+      <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 3, padding: '6px 10px', borderRadius: 999, background: 'rgba(0,0,0,.55)', color: connection.connected && connection.modConnected ? '#8ff0b0' : '#ffb3b3', fontSize: 12 }}>
+        {connection.connected ? (connection.modConnected ? 'Game connected' : 'Mod disconnected') : 'Server disconnected'}
+      </div>
 
       {isWide ? (
         <>
