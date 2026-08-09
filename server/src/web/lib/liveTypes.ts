@@ -32,7 +32,7 @@ export interface ContainerItemSnapshot {
   equipped?: boolean;
 }
 
-export type ContainerKind = 'player' | 'bag' | 'object' | 'deadBody' | 'floorBag' | 'floor';
+export type ContainerKind = 'player' | 'bag' | 'vehicle' | 'object' | 'deadBody' | 'floorBag' | 'floor';
 
 export interface ContainerSnapshot {
   id: string;
@@ -176,4 +176,10 @@ export interface CategoryMap {
   map: MapSnapshot;
   annotations: AnnotationsSnapshot;
   vehicles: VehiclesSnapshot;
+}
+
+export interface ConnectionSnapshot {
+  connected: boolean;
+  modConnected: boolean;
+  updatedAt: number;
 }

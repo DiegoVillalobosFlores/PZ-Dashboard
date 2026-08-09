@@ -56,7 +56,8 @@ export function InventoryScreen() {
   );
   const containers = snapshot?.containers ?? [];
   const carried = containers.filter(isCarried);
-  const nearby = containers.filter((container) => !isCarried(container));
+  const nearby = containers.filter((container) => !isCarried(container) && container.kind !== 'vehicle');
+  const vehicle = containers.filter((container) => container.kind === 'vehicle');
 
   const carriedTabs = [allContainer(carried, 'all:carried', 'All carried'), ...carried].filter(
     (container): container is ContainerSnapshot => container !== null,
@@ -64,10 +65,14 @@ export function InventoryScreen() {
   const nearbyTabs = [allContainer(nearby, 'all:nearby', 'All nearby'), ...nearby].filter(
     (container): container is ContainerSnapshot => container !== null,
   );
+  const vehicleTabs = [...vehicle].filter(
+    (container): container is ContainerSnapshot => container !== null,
+  );
+  const displayNearbyTabs = [...vehicleTabs, ...nearbyTabs];
 
   function paneContainerById(id: string | null | undefined): ContainerSnapshot | null {
     if (!id) return null;
-    return [...carriedTabs, ...nearbyTabs].find((container) => container.id === id) ?? null;
+    return [...carriedTabs, ...nearbyTabs, ...vehicleTabs].find((container) => container.id === id) ?? null;
   }
 
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -78,7 +83,7 @@ export function InventoryScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const left = paneContainerById(leftId) ?? playerContainer(snapshot);
-  const right = paneContainerById(rightId) ?? defaultTarget(nearbyTabs);
+  const right = paneContainerById(rightId) ?? defaultTarget(displayNearbyTabs);
 
   const seenResultId = useRef<string | null>(null);
   const commandResult = useGameSubscription('containers:commandResult', (msg) =>
@@ -162,7 +167,7 @@ export function InventoryScreen() {
     ? containers.filter((container) => container.id !== selection.containerId)
     : [];
   const carriedTargets = targets.filter(isCarried);
-  const nearbyTargets = targets.filter((container) => !isCarried(container));
+  const nearbyTargets = targets.filter((container) => !isCarried(container) && container.kind !== 'vehicle');
   const useMenu = targets.length > 1;
 
   function moveButtonStyle(disabled: boolean) {
@@ -286,7 +291,7 @@ export function InventoryScreen() {
             <div style={{ width: 1, background: 'var(--color-glass-inset)', flexShrink: 0 }} />
             <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}>
               <ContainerPane
-                containers={nearbyTabs}
+                containers={displayNearbyTabs}
                 active={right}
                 onActiveChange={(id) => activate('right', id)}
                 selectedIds={rightSelection}

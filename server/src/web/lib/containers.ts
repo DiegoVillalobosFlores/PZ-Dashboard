@@ -3,6 +3,7 @@ import type { ContainerKind, ContainerSnapshot, ContainersSnapshot } from './liv
 const KIND_ICONS: Record<ContainerKind, string> = {
   player: 'person-standing',
   bag: 'backpack',
+  vehicle: 'car',
   object: 'archive',
   deadBody: 'skull',
   floorBag: 'backpack',
@@ -32,16 +33,17 @@ export function allContainer(
   id: string,
   name: string,
 ): ContainerSnapshot | null {
-  if (containers.length < 2) return null;
+  const [first] = containers;
+  if (!first || containers.length < 2) return null;
   return {
     id,
-    kind: containers[0].kind,
+    kind: first.kind,
     name,
     type: ALL_TYPE,
     icon: '',
-    x: containers[0].x,
-    y: containers[0].y,
-    z: containers[0].z,
+    x: first.x,
+    y: first.y,
+    z: first.z,
     locked: false,
     weight: containers.reduce((total, container) => total + container.weight, 0),
     capacity: -1,

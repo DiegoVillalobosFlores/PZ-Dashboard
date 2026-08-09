@@ -30,6 +30,46 @@ local function subInventory(item)
     return safe(function() return item:getInventory() end, nil, "containers.bagInventory")
 end
 
+local function vehicleContainers(vehicle, px, py, pz)
+    local records = {}
+    local globalContainer = safe(function() return vehicle:getInventory() end, nil, "containers.vehicleGlobalContainer")
+    if globalContainer then
+        table.insert(records, {
+            id = "vehicle:" .. tostring(safe(function() return vehicle:getId() end, 0, "containers.vehicleId")) .. ":global",
+            kind = "vehicle",
+            name = "Vehicle inventory",
+            type = "vehicle",
+            icon = "",
+            x = px, y = py, z = pz,
+            locked = false,
+            container = globalContainer,
+        })
+    end
+    local parts = safe(function() return vehicle:getPartCount() end, 0, "containers.vehiclePartCount")
+    for i = 0, parts - 1 do
+        local part = safe(function() return vehicle:getPartByIndex(i) end, nil, "containers.vehiclePart")
+        local container = part and safe(function() return part:getItemContainer() end, nil, "containers.vehicleItemContainer")
+        if container then
+            local id = safe(function() return vehicle:getId() end, 0, "containers.vehicleId")
+            local partId = safe(function() return part:getId() end, tostring(i), "containers.vehiclePartId")
+            table.insert(records, {
+                id = "vehicle:" .. tostring(id) .. ":" .. tostring(partId),
+                kind = "vehicle",
+                name = safe(function() return part:getInventoryItem() and part:getInventoryItem():getDisplayName() end, partId, "containers.vehicleName"),
+                type = safe(function() return container:getType() end, "vehicle", "containers.vehicleType"),
+                icon = safe(function()
+                    local item = part:getInventoryItem()
+                    return item and itemIcon(item, "containers.vehicleIcon") or ""
+                end, "", "containers.vehicleIcon"),
+                x = px, y = py, z = pz,
+                locked = false,
+                container = container,
+            })
+        end
+    end
+    return records
+end
+
 function PZDashboard.Containers.enumerate(player)
     local records = {}
     local px = math.floor(safe(function() return player:getX() end, 0, "containers.playerX"))
@@ -66,6 +106,13 @@ function PZDashboard.Containers.enumerate(player)
         end
     end
 
+    local vehicle = safe(function() return player:getVehicle() end, nil, "containers.vehicle")
+    if vehicle then
+        for _, record in ipairs(vehicleContainers(vehicle, px, py, pz)) do
+            table.insert(records, record)
+        end
+    end
+
     local cell = getCell()
     local floorItems = {}
     local worldObjects = {}
@@ -88,7 +135,7 @@ function PZDashboard.Containers.enumerate(player)
                             type = safe(function() return container:getType() end, "", "containers.objectType"),
                             icon = "",
                             x = sx, y = sy, z = sz,
-                            locked = isLockable(object) and safe(function() return object:isLocked() end, false, "containers.objectLocked") or false,
+                            locked = instanceof(object, "IsoThumpable") and safe(function() return object:isLocked() end, false, "containers.objectLocked") == true,
                             container = container,
                         })
                     end
