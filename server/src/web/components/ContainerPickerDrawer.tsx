@@ -3,7 +3,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import { CornerBrackets } from './CornerBrackets';
 import { Icon } from './Icon';
 import { ItemIcon } from './ItemIcon';
-import { containerIcon } from '../lib/containers';
+import { capacityColor, containerIcon } from '../lib/containers';
 import type { ContainerSnapshot } from '../lib/liveTypes';
 
 export function ContainerPickerDrawer({
@@ -121,7 +121,13 @@ export function ContainerPickerDrawer({
                   {container.name}
                 </span>
                 {container.locked && <Icon name="lock" size={14} color="var(--color-text-tertiary)" />}
-                <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', flexShrink: 0 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: capacityColor(container.weight, container.capacity),
+                    flexShrink: 0,
+                  }}
+                >
                   {container.capacity < 0
                     ? `${container.weight.toFixed(1)} kg`
                     : `${container.weight.toFixed(1)} / ${container.capacity}`}

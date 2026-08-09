@@ -1,4 +1,5 @@
 export interface CategorizedItem {
+  name?: string;
   displayCategory?: string;
   categoryLabel?: string;
 }
@@ -31,6 +32,10 @@ export function groupByItemCategory<T extends CategorizedItem>(items: T[]): Item
       groups.set(key, group);
     }
     group.items.push(item);
+  }
+
+  for (const group of groups.values()) {
+    group.items.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
   }
 
   return [...groups.values()].sort((a, b) => {

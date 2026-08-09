@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
+import { Menu } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { ContainerPane } from '../components/ContainerPane';
 import { ContainerPickerDrawer } from '../components/ContainerPickerDrawer';
 import { GlassPanel } from '../components/GlassPanel';
 import { Icon } from '../components/Icon';
+import { ItemIcon } from '../components/ItemIcon';
 import { ScreenModal } from '../components/ScreenModal';
 import { sendAction, useGameConnection, useGameSubscription } from '../lib/gameSocket';
-import { containerById, containerIcon, playerContainer, selectionWeight } from '../lib/containers';
+import {
+  ALL_TYPE,
+  allContainer,
+  capacityColor,
+  containerIcon,
+  itemWeightColor,
+  playerContainer,
+  selectionWeight,
+} from '../lib/containers';
 import type { ContainerSnapshot } from '../lib/liveTypes';
 
 interface Selection {
@@ -14,9 +24,6 @@ interface Selection {
   ids: number[];
 }
 
-// How long the "Moving N items…" readout stays up when no fresh snapshot
-// arrives to retire it — a mod that stopped streaming shouldn't leave the bar
-// stuck claiming a move is still in flight.
 const PENDING_TIMEOUT_MS = 8000;
 const ERROR_TIMEOUT_MS = 6000;
 
@@ -25,11 +32,13 @@ function isCarried(container: ContainerSnapshot): boolean {
 }
 
 function defaultTarget(containers: ContainerSnapshot[]): ContainerSnapshot | null {
-  return containers.find((container) => container.kind !== 'floor') ?? containers[0] ?? null;
+  const real = containers.filter((container) => container.type !== ALL_TYPE);
+  return real.find((container) => container.kind !== 'floor') ?? real[0] ?? null;
 }
 
 function moveBlocker(destination: ContainerSnapshot | null, selection: Selection, weight: number) {
   if (!destination) return 'No target';
+  if (destination.type === ALL_TYPE) return 'Pick a container';
   if (destination.id === selection.containerId) return 'Same container';
   if (destination.locked) return 'Locked';
   if (destination.capacity >= 0 && destination.weight + weight > destination.capacity) {
@@ -49,6 +58,18 @@ export function InventoryScreen() {
   const carried = containers.filter(isCarried);
   const nearby = containers.filter((container) => !isCarried(container));
 
+  const carriedTabs = [allContainer(carried, 'all:carried', 'All carried'), ...carried].filter(
+    (container): container is ContainerSnapshot => container !== null,
+  );
+  const nearbyTabs = [allContainer(nearby, 'all:nearby', 'All nearby'), ...nearby].filter(
+    (container): container is ContainerSnapshot => container !== null,
+  );
+
+  function paneContainerById(id: string | null | undefined): ContainerSnapshot | null {
+    if (!id) return null;
+    return [...carriedTabs, ...nearbyTabs].find((container) => container.id === id) ?? null;
+  }
+
   const [selection, setSelection] = useState<Selection | null>(null);
   const [leftId, setLeftId] = useState('player');
   const [rightId, setRightId] = useState<string | null>(null);
@@ -56,16 +77,9 @@ export function InventoryScreen() {
   const [pending, setPending] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // A pane whose container stopped being reported — walked away from the
-  // crate, corpse looted to nothing — silently falls back rather than going
-  // blank, since the mod re-enumerates from scratch every snapshot.
-  const left = containerById(snapshot, leftId) ?? playerContainer(snapshot);
-  const right = containerById(snapshot, rightId) ?? defaultTarget(nearby);
+  const left = paneContainerById(leftId) ?? playerContainer(snapshot);
+  const right = paneContainerById(rightId) ?? defaultTarget(nearbyTabs);
 
-  // The result of a move comes back on its own category, not as a reply: the
-  // mod queues a timed action and reports once it has run. The socket replays
-  // the last snapshot per category on subscribe, so the id seen first is
-  // whatever was already sitting there and is never surfaced.
   const seenResultId = useRef<string | null>(null);
   const commandResult = useGameSubscription('containers:commandResult', (msg) =>
     msg.category === 'commandResult' ? msg.data : undefined,
@@ -109,9 +123,7 @@ export function InventoryScreen() {
     setSelection(ids.length === 0 ? null : { containerId, ids });
   }
 
-  // On the wide layout the destination is whichever pane the selection is not
-  // in, so a move never needs a separate target control.
-  const source = selection ? containerById(snapshot, selection.containerId) : null;
+  const source = selection ? paneContainerById(selection.containerId) : null;
   const destination = !selection
     ? null
     : isWide
@@ -124,11 +136,89 @@ export function InventoryScreen() {
   const leftSelection = selection !== null && selection.containerId === left?.id ? selection.ids : [];
   const rightSelection = selection !== null && selection.containerId === right?.id ? selection.ids : [];
 
-  function move() {
-    if (!selection || !destination || blocker) return;
-    sendAction('moveItems', { to: destination.id, itemIds: selection.ids });
+  function moveTo(target: ContainerSnapshot | null) {
+    if (!selection || !target) return;
+    if (moveBlocker(target, selection, weight)) return;
+    sendAction('moveItems', { to: target.id, itemIds: selection.ids });
     setPending(selection.ids.length);
     setSelection(null);
+  }
+
+  function dropItems(targetId: string, source: Selection) {
+    const target = paneContainerById(targetId);
+    if (!target) return;
+    const dropped = selectionWeight(paneContainerById(source.containerId), source.ids);
+    const dropBlocker = moveBlocker(target, source, dropped);
+    if (dropBlocker) {
+      setError(dropBlocker);
+      return;
+    }
+    sendAction('moveItems', { to: target.id, itemIds: source.ids });
+    setPending(source.ids.length);
+    setSelection(null);
+  }
+
+  const targets = selection
+    ? containers.filter((container) => container.id !== selection.containerId)
+    : [];
+  const carriedTargets = targets.filter(isCarried);
+  const nearbyTargets = targets.filter((container) => !isCarried(container));
+  const useMenu = targets.length > 1;
+
+  function moveButtonStyle(disabled: boolean) {
+    return {
+      height: 48,
+      minWidth: 150,
+      padding: '0 16px',
+      cursor: disabled ? 'default' : 'pointer',
+      fontSize: 12,
+      letterSpacing: '0.06em',
+      borderRadius: 'var(--radius-sharp)',
+      color: disabled ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)',
+      background: disabled ? 'var(--color-slot-empty-fill)' : 'var(--color-accent-fill-medium)',
+      border: disabled
+        ? '1px solid var(--color-slot-empty-border)'
+        : '1px solid var(--color-accent-border-strong)',
+    } as const;
+  }
+
+  function targetMenuItem(container: ContainerSnapshot) {
+    const itemBlocker = selection ? moveBlocker(container, selection, weight) : 'No target';
+    return (
+      <Menu.Item
+        key={container.id}
+        disabled={itemBlocker !== null}
+        onClick={() => moveTo(container)}
+        leftSection={
+          container.icon ? (
+            <ItemIcon
+              icon={container.icon}
+              name={container.name}
+              type={container.type}
+              size={18}
+              color="var(--color-text-secondary)"
+            />
+          ) : (
+            <Icon name={containerIcon(container.kind)} size={14} color="var(--color-text-secondary)" />
+          )
+        }
+        rightSection={
+          itemBlocker ? (
+            <span style={{ fontSize: 10, color: 'var(--color-text-tertiary)' }}>{itemBlocker}</span>
+          ) : (
+            <span
+              style={{ fontSize: 10, color: capacityColor(container.weight, container.capacity) }}
+            >
+              {container.capacity < 0
+                ? `${container.weight.toFixed(1)} kg`
+                : `${container.weight.toFixed(1)} / ${container.capacity}`}
+            </span>
+          )
+        }
+      >
+        {container.name}
+      </Menu.Item>
+    );
   }
 
   const status = snapshot
@@ -145,9 +235,6 @@ export function InventoryScreen() {
           display: 'flex',
           flexDirection: 'column',
           width: '100%',
-          // Explicit height, not just maxHeight: the panes below need a
-          // definite box to grow into for their flex-grow/overflow-scroll to
-          // activate instead of collapsing.
           height: '100%',
           maxHeight: '100%',
           minHeight: 0,
@@ -187,22 +274,24 @@ export function InventoryScreen() {
           <div style={{ display: 'flex', flex: '1 1 0', minHeight: 0 }}>
             <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}>
               <ContainerPane
-                containers={carried}
+                containers={carriedTabs}
                 active={left}
                 onActiveChange={(id) => activate('left', id)}
                 selectedIds={leftSelection}
                 onSelectionChange={select}
+                onDropItems={dropItems}
                 compact={false}
               />
             </div>
             <div style={{ width: 1, background: 'var(--color-glass-inset)', flexShrink: 0 }} />
             <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}>
               <ContainerPane
-                containers={nearby}
+                containers={nearbyTabs}
                 active={right}
                 onActiveChange={(id) => activate('right', id)}
                 selectedIds={rightSelection}
                 onSelectionChange={select}
+                onDropItems={dropItems}
                 compact={false}
               />
             </div>
@@ -213,11 +302,12 @@ export function InventoryScreen() {
           <>
             <div style={{ display: 'flex', flex: '1 1 0', minHeight: 0 }}>
               <ContainerPane
-                containers={carried}
+                containers={carriedTabs}
                 active={left}
                 onActiveChange={(id) => activate('left', id)}
                 selectedIds={leftSelection}
                 onSelectionChange={select}
+                onDropItems={dropItems}
                 compact
               />
             </div>
@@ -253,7 +343,18 @@ export function InventoryScreen() {
                   color: 'var(--color-text-primary)',
                 }}
               >
-                {right && <Icon name={containerIcon(right.kind)} size={16} color="var(--color-text-secondary)" />}
+                {right &&
+                  (right.icon ? (
+                    <ItemIcon
+                      icon={right.icon}
+                      name={right.name}
+                      type={right.type}
+                      size={18}
+                      color="var(--color-text-secondary)"
+                    />
+                  ) : (
+                    <Icon name={containerIcon(right.kind)} size={16} color="var(--color-text-secondary)" />
+                  ))}
                 {right?.name ?? 'Nothing in range'}
               </span>
             </button>
@@ -292,7 +393,8 @@ export function InventoryScreen() {
             ) : (
               <>
                 <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                  {selection?.ids.length} selected · {weight.toFixed(1)} kg
+                  {selection?.ids.length} selected ·{' '}
+                  <span style={{ color: itemWeightColor(weight) }}>{weight.toFixed(1)} kg</span>
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <button
@@ -309,29 +411,45 @@ export function InventoryScreen() {
                   >
                     Clear
                   </button>
-                  <button
-                    onClick={move}
-                    disabled={blocker !== null}
-                    className="pz-label"
-                    style={{
-                      height: 48,
-                      minWidth: 150,
-                      padding: '0 16px',
-                      cursor: blocker ? 'default' : 'pointer',
-                      fontSize: 12,
-                      letterSpacing: '0.06em',
-                      borderRadius: 'var(--radius-sharp)',
-                      color: blocker ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)',
-                      background: blocker
-                        ? 'var(--color-slot-empty-fill)'
-                        : 'var(--color-accent-fill-medium)',
-                      border: blocker
-                        ? '1px solid var(--color-slot-empty-border)'
-                        : '1px solid var(--color-accent-border-strong)',
-                    }}
-                  >
-                    {blocker ?? `Move → ${destination?.name ?? ''}`}
-                  </button>
+                  {useMenu ? (
+                    <Menu position="top-end" withinPortal shadow="md" width={isWide ? 520 : 320}>
+                      <Menu.Target>
+                        <button className="pz-label" style={moveButtonStyle(false)}>
+                          Move to…
+                        </button>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                            <Menu.Label>Player inventory</Menu.Label>
+                            {carriedTargets.length === 0 ? (
+                              <Menu.Item disabled>None</Menu.Item>
+                            ) : (
+                              carriedTargets.map(targetMenuItem)
+                            )}
+                          </div>
+                          <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--color-glass-inset)' }} />
+                          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                            <Menu.Label>Nearby</Menu.Label>
+                            {nearbyTargets.length === 0 ? (
+                              <Menu.Item disabled>Nothing in range</Menu.Item>
+                            ) : (
+                              nearbyTargets.map(targetMenuItem)
+                            )}
+                          </div>
+                        </div>
+                      </Menu.Dropdown>
+                    </Menu>
+                  ) : (
+                    <button
+                      onClick={() => moveTo(destination)}
+                      disabled={blocker !== null}
+                      className="pz-label"
+                      style={moveButtonStyle(blocker !== null)}
+                    >
+                      {blocker ?? `Move → ${destination?.name ?? ''}`}
+                    </button>
+                  )}
                 </span>
               </>
             )}

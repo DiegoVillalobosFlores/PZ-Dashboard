@@ -1,17 +1,13 @@
-// Shapes as written by the PZ mod's collectors (mod/PZDashboard/.../PZDashboard_Collectors.lua).
-// Numeric need-stats (hunger/thirst/fatigue/...) are the game's raw 0-1
-// scale where higher = worse (more hungry, more tired); `endurance` is the
-// odd one out where higher = better (more stamina left).
 
 export interface StatusSnapshot {
   forename: string;
   surname: string;
   displayName: string;
-  health: number; // 0-100, higher = better
-  hunger: number; // 0-1, higher = more hungry
-  thirst: number; // 0-1, higher = more thirsty
-  fatigue: number; // 0-1, higher = more tired
-  endurance: number; // 0-1, higher = more stamina
+  health: number;
+  hunger: number;
+  thirst: number;
+  fatigue: number;
+  endurance: number;
   stress: number;
   panic: number;
   boredom: number;
@@ -21,25 +17,23 @@ export interface StatusSnapshot {
 }
 
 export interface ContainerItemSnapshot {
-  id: number; // InventoryItem:getID() — the handle every move command sends back
+  id: number;
   name: string;
   type: string;
   count: number;
-  condition: number; // raw, only meaningful against conditionMax
+  condition: number;
   conditionMax: number;
   weight: number;
   icon: string;
-  category: string; // "Weapon" | "Clothing" | "Item" | ... (PZ's own item categories)
+  category: string;
   displayCategory: string;
   categoryLabel: string;
-  bodyLocation: string; // ItemBodyLocation this would occupy if worn; "" for non-clothing
+  bodyLocation: string;
+  equipped?: boolean;
 }
 
 export type ContainerKind = 'player' | 'bag' | 'object' | 'deadBody' | 'floorBag' | 'floor';
 
-// One reachable container. `id` is opaque to the frontend and round-trips
-// straight back to the mod's moveItems action, which resolves it against the
-// same enumeration that produced it.
 export interface ContainerSnapshot {
   id: string;
   kind: ContainerKind;
@@ -51,7 +45,7 @@ export interface ContainerSnapshot {
   z: number;
   locked: boolean;
   weight: number;
-  capacity: number; // -1 on the floor, which has no capacity at all
+  capacity: number;
   items: ContainerItemSnapshot[];
 }
 
@@ -59,17 +53,13 @@ export interface ContainersSnapshot {
   containers: ContainerSnapshot[];
 }
 
-// One shape for every equipped item, whichever slot holds it — see
-// itemSnapshot() in the mod's PZDashboard_Collectors.lua. `location` is only
-// set for items that live in a named slot (hotbar attachments, worn
-// clothing), not for hand items.
 export interface EquippedItemSnapshot {
   name: string;
   type: string;
   icon: string;
-  condition: number; // raw, only meaningful against conditionMax
+  condition: number;
   conditionMax: number;
-  ammo?: number; // firearms only
+  ammo?: number;
   ammoMax?: number;
   location?: string;
 }
@@ -117,6 +107,8 @@ export interface MapSnapshot {
   x: number;
   y: number;
   z: number;
+  dirX?: number;
+  dirY?: number;
   safehouse: boolean;
   inVehicle: boolean;
 }
@@ -134,19 +126,16 @@ export interface VehiclesSnapshot {
 }
 
 
-// Only the player's own hand-placed map markers/notes (mod filters out the
-// map's built-in default annotations via symbol:isUserDefined()) - see
-// mod/PZDashboard/.../PZDashboard_Collectors.lua's annotations() collector.
 export interface AnnotationMarkerSnapshot {
   x: number;
   y: number;
   isText: boolean;
   text?: string;
   symbolId?: string;
-  r: number; // 0-1
-  g: number; // 0-1
-  b: number; // 0-1
-  rotation: number; // degrees
+  r: number;
+  g: number;
+  b: number;
+  rotation: number;
   author: string;
 }
 
@@ -154,9 +143,6 @@ export interface AnnotationsSnapshot {
   markers: AnnotationMarkerSnapshot[];
 }
 
-// The mod reports appearance as ids rather than file paths; the server turns
-// them into a mesh/texture draw list at /api/model/figure, so the only thing
-// the frontend does with this snapshot is notice that it changed.
 export interface AppearanceWornSnapshot {
   clothingItem: string;
   name: string;
