@@ -178,6 +178,8 @@ export function MapCanvas({
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const centerRef = useRef(center);
   centerRef.current = center;
+  const manualCenterRef = useRef(manualCenter);
+  manualCenterRef.current = manualCenter;
   const zoomRef = useRef(zoomSquares);
   zoomRef.current = zoomSquares;
 
@@ -203,7 +205,7 @@ export function MapCanvas({
     const nextCenterY = anchorWorldY - (clientY - rect.top - rect.height / 2) * uppNext;
 
     setZoomSquares(nextZoom);
-    setManualCenter({ x: nextCenterX, y: nextCenterY });
+    if (manualCenterRef.current) setManualCenter({ x: nextCenterX, y: nextCenterY });
   }
 
   function screenToWorld(clientX: number, clientY: number, rect: DOMRect): WorldPoint | null {
@@ -506,7 +508,7 @@ export function MapCanvas({
               {a.text}
             </text>
           ))}
-        {vehicles?.map((vehicle) => (
+        {vehicles?.filter((vehicle) => !position?.inVehicle || vehicle.current).map((vehicle) => (
           <Car
             key={`vehicle-${vehicle.id}`}
             x={vehicle.x - zoomSquares / 70}
@@ -544,7 +546,7 @@ export function MapCanvas({
           />
         )}
 
-        {smoothedCenter && (
+        {smoothedCenter && !position?.inVehicle && (
           <g
             transform={`translate(${smoothedCenter.x} ${smoothedCenter.y}) rotate(${headingDeg}) scale(${zoomSquares / 500})`}
           >

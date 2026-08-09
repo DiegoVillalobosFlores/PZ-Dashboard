@@ -135,6 +135,9 @@ function Divider({ height }: { height: number }) {
 }
 
 export function ConditionCluster({ compact = false }: { compact?: boolean }) {
+  const position = useGameSubscription('map:position', (msg) =>
+    msg.category === 'map' ? msg.data : undefined,
+  );
   const vitals =
     useGameSubscription('vitals', (msg) =>
       msg.category === 'status' ? statusToVitals(msg.data) : undefined,
@@ -163,6 +166,17 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
       </div>
     </Tooltip>
   );
+
+  if (position?.inVehicle) {
+    return (
+      <GlassPanel
+        cornerBrackets={{ length: 12, thickness: 2, inset: 3, opacity: 0.85 }}
+        style={{ display: 'flex', alignItems: 'center', padding: compact ? '9px 12px' : '8px 18px' }}
+      >
+        <Icon name="car" size={compact ? 17 : 20} color="var(--color-accent)" />
+      </GlassPanel>
+    );
+  }
 
   // Mobile: one full-width row so the strip reads at a glance without eating
   // two lines of the map's top edge - the wide layout keeps the stacked
