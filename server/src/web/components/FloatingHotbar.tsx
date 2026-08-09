@@ -4,7 +4,7 @@ import { GlassPanel } from './GlassPanel';
 import { sendAction, useGameSubscription } from '../lib/gameSocket';
 import { hotbarGroups, type EquipSlotState } from '../lib/equipment';
 
-const MAX_ROWS_ROOMY = 2;
+const MAX_ROWS_ROOMY = 1;
 
 function columnsOf(slots: EquipSlotState[], maxRows: number): EquipSlotState[][] {
   const columns: EquipSlotState[][] = [];
@@ -31,7 +31,6 @@ export function FloatingHotbar({
   const [maxRows, setMaxRows] = useState(MAX_ROWS_ROOMY);
 
   const gap = compact ? 8 : 10;
-  const groupGap = compact ? 8 : 10;
   const pad = compact ? 8 : 10;
   const tile = compact ? 52 : 64;
 
@@ -56,7 +55,7 @@ export function FloatingHotbar({
       let total = 0;
       groups.forEach((g, i) => {
         total += groupNaturalWidth(g.slots.length, tile, gap, pad, MAX_ROWS_ROOMY);
-        if (i > 0) total += groupGap;
+        if (i > 0) total += 1;
       });
 
       setMaxRows(forcedSingleRow || total > budget ? 1 : MAX_ROWS_ROOMY);
@@ -67,7 +66,7 @@ export function FloatingHotbar({
     if (root.parentElement) ro.observe(root.parentElement);
     ro.observe(root);
     return () => ro.disconnect();
-  }, [groups, compact, gap, groupGap, pad, tile, forcedSingleRow, isMobile]);
+  }, [groups, compact, gap, pad, tile, forcedSingleRow, isMobile]);
 
   function equip(slot: EquipSlotState) {
     if (slot.itemType) sendAction('equipPrimary', { itemType: slot.itemType });
@@ -110,7 +109,6 @@ export function FloatingHotbar({
                     alignSelf: 'stretch',
                     background: 'var(--color-border-default)',
                     opacity: 0.5,
-                    margin: '0 4px',
                   }}
                 />
               )}
@@ -151,23 +149,32 @@ export function FloatingHotbar({
         justifyContent: 'center',
         width: 'auto',
         maxWidth: '100%',
-        gap: groupGap,
         pointerEvents: 'auto',
         overflowX: maxRows === 1 ? 'auto' : 'visible',
       }}
     >
-      {groups.map((group) => (
-        <GlassPanel
-          key={group.id}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: compact ? 6 : 8,
-            padding: pad,
-            flex: '0 0 auto',
-          }}
-        >
+      {groups.map((group, i) => (
+        <Fragment key={group.id}>
+          {i > 0 && (
+            <span
+              style={{
+                width: 1,
+                alignSelf: 'stretch',
+                background: 'var(--color-border-default)',
+                opacity: 0.5,
+              }}
+            />
+          )}
+          <GlassPanel
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: compact ? 6 : 8,
+              padding: pad,
+              flex: '0 0 auto',
+            }}
+          >
           <span
             className="pz-label"
             style={{
@@ -192,7 +199,7 @@ export function FloatingHotbar({
             }}
           >
             {columnsOf(group.slots, maxRows).map((column) => (
-              <div key={column[0]!.id} style={{ display: 'flex', flexDirection: 'column', gap }}>
+              <div key={column[0]!.id} style={{ display: 'flex', flexDirection: 'column', gap: maxRows > 1 ? gap : 0 }}>
                 {column.map((slot) => (
                   <EquipTile
                     key={slot.id}
@@ -205,7 +212,8 @@ export function FloatingHotbar({
               </div>
             ))}
           </div>
-        </GlassPanel>
+          </GlassPanel>
+        </Fragment>
       ))}
     </div>
   );
