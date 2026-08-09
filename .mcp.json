@@ -2,7 +2,20 @@
   "mcpServers": {
     "chrome-devtools": {
       "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp", "--isolated", "--channel=stable"]
+      "args": [
+        "-y",
+        "chrome-devtools-mcp",
+        "--isolated",
+        "--channel=stable"
+      ]
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": [
+        "serve",
+        "--mcp"
+      ]
     }
   }
 }
