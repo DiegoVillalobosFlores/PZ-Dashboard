@@ -5,7 +5,7 @@ import { iconForItem } from '../lib/itemIcon';
 
 // Real in-game sprite when the mod reports one (item:getTex():getName(),
 // extracted ahead of time from the game's UI.pack/UI2.pack texture atlases
-// into server/public/item-icons/<name>.png) - falls back to the lucide
+// into server/public/game-icons/<name>.png) - falls back to the lucide
 // keyword-guess icon when there's no icon name or the sprite 404s (e.g. a
 // name the extraction script doesn't have, or a stale mod build).
 export function ItemIcon({
@@ -26,7 +26,7 @@ export function ItemIcon({
   if (icon && !failed) {
     return (
       <img
-        src={`${apiBase()}/item-icons/${icon}.png`}
+        src={`${apiBase()}/game-icons/${icon}.png`}
         alt={name}
         width={size}
         height={size}

@@ -149,10 +149,10 @@ const server = Bun.serve({
     // filenames match the subtexture names the mod reports as `icon` on
     // inventory items (item:getTex():getName() in
     // PZDashboard_Collectors.lua), e.g. "Item_Radish.png".
-    "/item-icons/:name": async (req) => {
+    "/game-icons/:name": async (req) => {
       const name = req.params.name;
       if (!/^[A-Za-z0-9_]+\.png$/.test(name)) return new Response("Not found", { status: 404 });
-      const file = Bun.file(join(import.meta.dir, "..", "public", "item-icons", name));
+      const file = Bun.file(join(import.meta.dir, "..", "public", "game-icons", name));
       if (!(await file.exists())) return new Response("Not found", { status: 404 });
       return new Response(file, { headers: { "Content-Type": "image/png" } });
     },
