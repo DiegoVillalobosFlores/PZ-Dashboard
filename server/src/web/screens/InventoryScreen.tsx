@@ -81,6 +81,7 @@ export function InventoryScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, setPending] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const left = paneContainerById(leftId) ?? playerContainer(snapshot);
   const right = paneContainerById(rightId) ?? defaultTarget(displayNearbyTabs);

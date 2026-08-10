@@ -19,6 +19,7 @@ import { useMapFocus } from '../lib/mapFocus';
 import { useModalContext } from './ModalContext';
 import { annotationColor } from '../lib/annotations';
 import type { MapPin } from '../mock/gameState';
+import type { VehicleSnapshot } from '../lib/liveTypes';
 
 const PIN_COLOR: Record<MapPin['kind'], string> = {
   player: 'var(--color-accent)',
@@ -27,6 +28,18 @@ const PIN_COLOR: Record<MapPin['kind'], string> = {
 };
 
 const ROUTE_COLOR = '#000000';
+// The mod forgets every vehicle when the game restarts, so the browser keeps
+// the one that matters - the car you last drove - to find it again next session.
+const VEHICLE_STORE_KEY = 'pz-dashboard.vehicle';
+
+function loadStoredVehicle(): VehicleSnapshot | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(VEHICLE_STORE_KEY) ?? 'null');
+    return raw ? { ...raw, current: false } : null;
+  } catch {
+    return null;
+  }
+}
 const CLICK_MOVE_THRESHOLD_PX = 6;
 
 type WorldPoint = { x: number; y: number };
@@ -147,9 +160,24 @@ export function MapCanvas({
   const annotations = useGameSubscription('map:annotations', (msg) =>
     msg.category === 'annotations' ? msg.data.markers : undefined,
   );
-  const vehicles = useGameSubscription('map:vehicles', (msg) =>
+  const liveVehicles = useGameSubscription('map:vehicles', (msg) =>
     msg.category === 'vehicles' ? msg.data.vehicles : undefined,
   );
+  const [vehicle, setVehicle] = useState<VehicleSnapshot | null>(loadStoredVehicle);
+
+  useEffect(() => {
+    if (!liveVehicles) return;
+    setVehicle((prev) => {
+      // Whichever car is being driven becomes the pin; otherwise keep the last
+      // one, refreshed from the mod in case it has moved since.
+      const next = liveVehicles.find((v) => v.current) ?? liveVehicles.find((v) => v.id === prev?.id) ?? prev;
+      if (!next) return prev;
+      const serialized = JSON.stringify(next);
+      if (serialized === JSON.stringify(prev)) return prev;
+      localStorage.setItem(VEHICLE_STORE_KEY, serialized);
+      return next;
+    });
+  }, [liveVehicles]);
 
   const [data, setData] = useState<VectorMapData | null>(null);
   const [zoomSquares, setZoomSquares] = useState(DEFAULT_ZOOM_SQUARES);
@@ -508,12 +536,24 @@ export function MapCanvas({
               {a.text}
             </text>
           ))}
-        {vehicles?.filter((vehicle) => !position?.inVehicle || vehicle.current).map((vehicle) => (
-          <g
-            key={`vehicle-${vehicle.id}`}
-            transform={`translate(${vehicle.x} ${vehicle.y}) scale(${zoomSquares / 500})`}
-          >
+        {vehicle && (
+          <g transform={`translate(${vehicle.x} ${vehicle.y}) scale(${zoomSquares / 500})`}>
             <title>{vehicle.name}</title>
+            {vehicle.dirX !== undefined && vehicle.dirY !== undefined && (
+              <g
+                transform={`rotate(${(Math.atan2(vehicle.dirX, -vehicle.dirY) * 180) / Math.PI}) translate(0 -20) rotate(-45)`}
+              >
+                <Navigation
+                  width={14}
+                  height={14}
+                  x={-7}
+                  y={-7}
+                  fill={vehicle.current ? PIN_COLOR.player : 'var(--color-warning)'}
+                  color="white"
+                  strokeWidth={1.5}
+                />
+              </g>
+            )}
             <Car
               width={24}
               height={24}
@@ -524,7 +564,7 @@ export function MapCanvas({
               strokeWidth={1.5}
             />
           </g>
-        ))}
+        )}
 
 
         {routePoints && routePoints.length > 1 && (

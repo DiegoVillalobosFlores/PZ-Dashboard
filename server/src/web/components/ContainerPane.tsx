@@ -6,6 +6,17 @@ import { ALL_TYPE, capacityColor, containerIcon, itemWeightColor } from '../lib/
 import { groupByItemCategory } from '../lib/itemCategories';
 import type { ContainerSnapshot } from '../lib/liveTypes';
 
+function fuzzyMatch(item: ContainerSnapshot['items'][number], query: string): boolean {
+  const text = `${item.name} ${item.type} ${item.categoryLabel}`.toLowerCase();
+  let index = 0;
+  for (const character of query.toLowerCase()) {
+    index = text.indexOf(character, index);
+    if (index < 0) return false;
+    index += 1;
+  }
+  return true;
+}
+
 function capacityLabel(container: ContainerSnapshot): string {
   if (container.capacity < 0) return `${container.weight.toFixed(1)} kg`;
   return `${container.weight.toFixed(1)} / ${container.capacity} kg`;
@@ -18,6 +29,7 @@ export function ContainerPane({
   selectedIds,
   onSelectionChange,
   onDropItems,
+  search,
   compact,
 }: {
   containers: ContainerSnapshot[];
@@ -26,9 +38,12 @@ export function ContainerPane({
   selectedIds: number[];
   onSelectionChange: (containerId: string, ids: number[]) => void;
   onDropItems: (targetId: string, source: { containerId: string; ids: number[] }) => void;
+  search: string;
   compact: boolean;
 }) {
-  const groups = active ? groupByItemCategory(active.items) : [];
+  const groups = active
+    ? groupByItemCategory(active.items.filter((item) => fuzzyMatch(item, search.trim())))
+    : [];
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   function startDrag(event: React.DragEvent, itemId: number) {
@@ -196,7 +211,7 @@ export function ContainerPane({
       >
         {groups.length === 0 && (
           <div style={{ padding: '16px 12px', fontSize: 13, color: 'var(--color-text-tertiary)' }}>
-            Empty.
+            {search.trim() ? 'No matching items.' : 'Empty.'}
           </div>
         )}
         {groups.map((group) => {
