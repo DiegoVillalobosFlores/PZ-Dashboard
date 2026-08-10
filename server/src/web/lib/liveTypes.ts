@@ -12,6 +12,11 @@ export interface StatusSnapshot {
   panic: number;
   boredom: number;
   pain: number;
+  hour: number;
+  minute: number;
+  day: number;
+  month: number;
+  temperature: number;
   infected: boolean;
   bleeding: boolean;
 }
@@ -118,6 +123,8 @@ export interface VehicleSnapshot {
   x: number;
   y: number;
   z: number;
+  dirX?: number;
+  dirY?: number;
   current: boolean;
 }
 

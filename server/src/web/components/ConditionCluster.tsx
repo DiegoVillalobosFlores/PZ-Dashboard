@@ -146,6 +146,9 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
   const conditions = useGameSubscription('conditions', (msg) =>
     msg.category === 'status' ? statusToConditions(msg.data) : undefined,
   );
+  const world = useGameSubscription('world-stats', (msg) =>
+    msg.category === 'status' ? msg.data : undefined,
+  );
 
   const iconSize = compact ? 17 : 20;
 
@@ -171,6 +174,15 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
     <Icon name="car" size={iconSize} color="var(--color-accent)" />
   ) : null;
 
+  const worldStats = world ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 7 : 10, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', fontSize: compact ? 11 : 12, whiteSpace: 'nowrap' }}>
+      <span>{String(world.hour).padStart(2, '0')}:{String(world.minute).padStart(2, '0')}</span>
+      <span>DAY {world.day}</span>
+      <span>{world.day}/{world.month}</span>
+      <span>{Math.round(world.temperature)}°</span>
+    </div>
+  ) : null;
+
   // Mobile: one full-width row so the strip reads at a glance without eating
   // two lines of the map's top edge - the wide layout keeps the stacked
   // two-row pill since it already has a whole side of the screen to itself.
@@ -188,6 +200,8 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
         }}
       >
         {vehicleChip}
+        {worldStats}
+        <Divider height={16} />
         {healthChip}
         <Divider height={16} />
         <MiniVital name="hunger" icon="drumstick" value={vitals.hunger} compact={compact} />
@@ -276,6 +290,11 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
             <MiniFlag name="bleeding" icon="droplet" active={conditions.bleeding} compact={compact} />
           </>
         ) : null}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <Divider height={18} />
+        {worldStats}
       </div>
     </GlassPanel>
   );

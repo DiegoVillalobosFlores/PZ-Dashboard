@@ -31,6 +31,8 @@ end
 function PZDashboard.Collectors.status(player)
     local stats = player:getStats()
     local bodyDamage = player:getBodyDamage()
+    local climate = getClimateManager()
+    local gameTime = getGameTime()
     return {
         forename = safe(function() return player:getDescriptor():getForename() end, "", "status.forename"),
         surname = safe(function() return player:getDescriptor():getSurname() end, "", "status.surname"),
@@ -44,6 +46,11 @@ function PZDashboard.Collectors.status(player)
         panic = safe(function() return stats:get(CharacterStat.PANIC) end, 0, "status.panic"),
         boredom = safe(function() return stats:get(CharacterStat.BOREDOM) end, 0, "status.boredom"),
         pain = safe(function() return stats:get(CharacterStat.PAIN) end, 0, "status.pain"),
+        hour = safe(function() return gameTime:getHour() end, 0, "status.hour"),
+        minute = safe(function() return gameTime:getMinutes() end, 0, "status.minute"),
+        day = safe(function() return gameTime:getDay() end, 0, "status.day"),
+        month = safe(function() return gameTime:getMonth() end, 0, "status.month"),
+        temperature = safe(function() return climate:getTemperature() end, 0, "status.temperature"),
         infected = safe(function() return bodyDamage:isInfected() end, false, "status.infected"),
         bleeding = safe(function()
             local parts = bodyDamage:getBodyParts()
@@ -101,6 +108,12 @@ function PZDashboard.Collectors.vehicles(player)
             if tracked then
                 local scriptName = safe(function() return vehicle:getScriptName() end, "", "vehicles.scriptName")
                 if scriptName ~= "" then tracked.name = scriptName end
+                local dirX = safe(function() return player:getForwardDirection():getX() end, nil, "vehicles.dirX")
+                local dirY = safe(function() return player:getForwardDirection():getY() end, nil, "vehicles.dirY")
+                if dirX ~= nil and dirY ~= nil then
+                    tracked.dirX = dirX
+                    tracked.dirY = dirY
+                end
                 tracked.current = true
             end
         end

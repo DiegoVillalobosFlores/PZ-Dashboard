@@ -65,14 +65,10 @@ function HudShellInner() {
       } as CSSProperties}
     >
       <MapCanvas pins={mockMapPins} />
-      <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 3, padding: '6px 10px', borderRadius: 999, background: 'rgba(0,0,0,.55)', color: connection.connected && connection.modConnected ? '#8ff0b0' : '#ffb3b3', fontSize: 12 }}>
-        {connection.connected ? (connection.modConnected ? 'Game connected' : 'Mod disconnected') : 'Server disconnected'}
-      </div>
-
       {isWide ? (
         <>
           <div style={{ position: 'absolute', top: 24, left: 116, zIndex: 2 }}>
-            <ConditionCluster compact={false} />
+            {connection.connected && connection.modConnected ? <ConditionCluster compact={false} /> : <ConnectionStatus connected={connection.connected} />}
           </div>
           <div style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 2 }}>
             <QuickNav currentId={currentId} />
@@ -90,7 +86,7 @@ function HudShellInner() {
               padding: 8,
             }}
           >
-            <ConditionCluster compact />
+            {connection.connected && connection.modConnected ? <ConditionCluster compact /> : <ConnectionStatus connected={connection.connected} />}
           </div>
           <QuickNav currentId={currentId} />
         </>
@@ -120,6 +116,14 @@ function HudShellInner() {
       </div>
 
       <AnnotationsDrawer opened={annotationsOpen} onClose={() => setAnnotationsOpen(false)} />
+    </div>
+  );
+}
+
+function ConnectionStatus({ connected }: { connected: boolean }) {
+  return (
+    <div style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(0,0,0,.55)', color: '#ffb3b3', fontSize: 12 }}>
+      {connected ? 'Mod disconnected' : 'Server disconnected'}
     </div>
   );
 }
