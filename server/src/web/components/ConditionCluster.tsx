@@ -167,16 +167,9 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
     </Tooltip>
   );
 
-  if (position?.inVehicle) {
-    return (
-      <GlassPanel
-        cornerBrackets={{ length: 12, thickness: 2, inset: 3, opacity: 0.85 }}
-        style={{ display: 'flex', alignItems: 'center', padding: compact ? '9px 12px' : '8px 18px' }}
-      >
-        <Icon name="car" size={compact ? 17 : 20} color="var(--color-accent)" />
-      </GlassPanel>
-    );
-  }
+  const vehicleChip = position?.inVehicle ? (
+    <Icon name="car" size={iconSize} color="var(--color-accent)" />
+  ) : null;
 
   // Mobile: one full-width row so the strip reads at a glance without eating
   // two lines of the map's top edge - the wide layout keeps the stacked
@@ -194,6 +187,7 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
           overflowX: 'auto',
         }}
       >
+        {vehicleChip}
         {healthChip}
         <Divider height={16} />
         <MiniVital name="hunger" icon="drumstick" value={vitals.hunger} compact={compact} />
@@ -244,6 +238,7 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {vehicleChip}
         {healthChip}
         <MiniVital name="hunger" icon="drumstick" value={vitals.hunger} compact={compact} />
         <MiniVital name="thirst" icon="droplet" value={vitals.thirst} compact={compact} />

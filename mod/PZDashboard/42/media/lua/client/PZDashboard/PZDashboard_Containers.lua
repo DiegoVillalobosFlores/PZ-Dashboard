@@ -32,19 +32,6 @@ end
 
 local function vehicleContainers(vehicle, px, py, pz)
     local records = {}
-    local globalContainer = safe(function() return vehicle:getInventory() end, nil, "containers.vehicleGlobalContainer")
-    if globalContainer then
-        table.insert(records, {
-            id = "vehicle:" .. tostring(safe(function() return vehicle:getId() end, 0, "containers.vehicleId")) .. ":global",
-            kind = "vehicle",
-            name = "Vehicle inventory",
-            type = "vehicle",
-            icon = "",
-            x = px, y = py, z = pz,
-            locked = false,
-            container = globalContainer,
-        })
-    end
     local parts = safe(function() return vehicle:getPartCount() end, 0, "containers.vehiclePartCount")
     for i = 0, parts - 1 do
         local part = safe(function() return vehicle:getPartByIndex(i) end, nil, "containers.vehiclePart")

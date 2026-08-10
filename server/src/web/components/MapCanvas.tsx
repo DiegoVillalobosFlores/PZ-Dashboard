@@ -509,17 +509,21 @@ export function MapCanvas({
             </text>
           ))}
         {vehicles?.filter((vehicle) => !position?.inVehicle || vehicle.current).map((vehicle) => (
-          <Car
+          <g
             key={`vehicle-${vehicle.id}`}
-            x={vehicle.x - zoomSquares / 70}
-            y={vehicle.y - zoomSquares / 70}
-            width={zoomSquares / 35}
-            height={zoomSquares / 35}
-            color={vehicle.current ? PIN_COLOR.player : 'var(--color-warning)'}
-            strokeWidth={2.5}
+            transform={`translate(${vehicle.x} ${vehicle.y}) scale(${zoomSquares / 500})`}
           >
             <title>{vehicle.name}</title>
-          </Car>
+            <Car
+              width={24}
+              height={24}
+              x={-12}
+              y={-12}
+              fill={vehicle.current ? PIN_COLOR.player : 'var(--color-warning)'}
+              color="white"
+              strokeWidth={1.5}
+            />
+          </g>
         ))}
 
 
