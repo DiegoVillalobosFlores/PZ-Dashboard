@@ -3,7 +3,6 @@
 A companion, browser-based interface for a Project Zomboid mod: the mod
 streams live game state (status, map, inventory, skills, toolbar) to a local
 server, and this is the second-screen UI that displays and acts on it. See
-`PRODUCT.md` for full product context.
 
 Don't write any code comments this is the most important rule you need to follow
 
@@ -16,13 +15,13 @@ and screenshots (22% combined). The rules below target those.
 
 - **Read narrowly.** Prefer `start_line`/`end_line` or `grep` over reading a
   whole file when you know what you're after. `MapCanvas.tsx`,
-  `PZDashboard_Collectors.lua` and `penpot/helpers.js` are the big ones —
+  `PZDashboard_Collectors.lua` is the big one —
   don't pull them in whole to check one function. Never re-read a file you
   already read or just edited; `edit_file`/`write_file` fail loudly if they
   didn't apply, so re-reading to "verify" only buys context.
 - **Filter in the shell, not in context.** Pipe through `jq`, `rg`, `bun -e`
   and print the fields you need. Don't dump a whole state JSON, mod
-  `console.txt`, or a Penpot board export and read it back — especially
+  `console.txt` and read it back — especially
   don't round-trip via `/tmp/*.json`, which was the single most expensive
   read pattern measured.
 - **Say when to `/clear`.** Session length dominates everything else: two
@@ -51,7 +50,7 @@ and screenshots (22% combined). The rules below target those.
   they differ), the source-vs-deployed mod split and Lua reload workflow,
   reading `console.txt`, and Build 42 API gotchas already paid for.
   `src/web/` is the frontend: React + Mantine, implementing the
-  floating-glass-HUD design from Penpot (currently v3) — a fullscreen map
+  floating-glass-HUD design — a fullscreen map
   Home screen and a Health/Equipment screen, each responsive between a
   mobile layout and a wide "Ayaneo" handheld layout, plus right-edge
   drawers for weapon/clothing selection.
@@ -114,19 +113,12 @@ and screenshots (22% combined). The rules below target those.
   (`PZ_POLL_MS`, default 250ms) — `fs.watch` alone silently drops most
   events under the mod's write load and will strand the whole dashboard on
   a minutes-old snapshot. Don't "simplify" the poll away.
-- `penpot/` — UI design work for the companion app. Design happens in a
-  self-hosted Penpot instance, not Figma (quota exhausted) and not
-  hand-coded HTML. **Before touching UI design, load the `penpot-local`
-  skill** (`.claude/skills/penpot-local/SKILL.md`) — it covers starting the
-  local Penpot stack, connecting its MCP server, Plugin API gotchas already
-  paid for, and the mandatory on-canvas versioning convention (every
-  revision is a new row, never an edit in place).
 
 ## Zed-specific notes
 
 Skills referenced above live in the `.claude/skills/` directory (originally
 authored for Claude Code). Load them with the `skill` tool when the task
-involves the mod server or Penpot design.
+involves the mod server.
 
 The project uses `bun` as its runtime and package manager. Run the server
 with `bun --hot src/index.ts` from the `server/` directory.

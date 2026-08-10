@@ -20,7 +20,7 @@ export function HandEquipmentWidget({
       msg.category === 'toolbar' ? handSlots(msg.data) : undefined,
     ) ?? handSlots(null);
 
-  // Matches the Penpot v8 frame: tile size and gap differ per breakpoint, and
+  // Tile size and gap differ per breakpoint, and
   // the panel is sized to its contents rather than the other way round.
   const slotSize = wide ? 84 : 62;
   const pad = 8;

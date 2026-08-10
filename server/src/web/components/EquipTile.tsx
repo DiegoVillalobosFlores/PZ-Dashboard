@@ -28,7 +28,7 @@ interface TileSpec {
   conditionBar?: { bottom: number; inset: number; height: number };
 }
 
-// Pixel offsets lifted directly from the Penpot components at both sizes
+// Pixel offsets tuned for both sizes
 // rather than derived from a scale factor, since the design doesn't scale
 // the two sizes by the same ratio for every element.
 const SPECS: Record<EquipTileVariant, { wide: TileSpec; compact: TileSpec }> = {
