@@ -270,6 +270,21 @@ export function InventoryScreen() {
           <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>{status}</span>
         </div>
 
+        <div style={{ padding: '0 24px 12px', flexShrink: 0 }}>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.currentTarget.value)}
+            placeholder="Search all items..."
+            aria-label="Search all items"
+            style={{
+              width: '100%', height: 38, boxSizing: 'border-box', padding: '0 12px',
+              color: 'var(--color-text-primary)', background: 'var(--color-glass-inset)',
+              border: '1px solid var(--color-border-default)', borderRadius: 'var(--radius-sharp)',
+              fontSize: 13, outline: 'none',
+            }}
+          />
+        </div>
+
         {!snapshot && (
           <div style={{ padding: '24px', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
             {connected ? 'Waiting for container data…' : 'Not connected to the dashboard server.'}
@@ -286,6 +301,7 @@ export function InventoryScreen() {
                 selectedIds={leftSelection}
                 onSelectionChange={select}
                 onDropItems={dropItems}
+                search={search}
                 compact={false}
               />
             </div>
@@ -298,6 +314,7 @@ export function InventoryScreen() {
                 selectedIds={rightSelection}
                 onSelectionChange={select}
                 onDropItems={dropItems}
+                search={search}
                 compact={false}
               />
             </div>
@@ -314,6 +331,7 @@ export function InventoryScreen() {
                 selectedIds={leftSelection}
                 onSelectionChange={select}
                 onDropItems={dropItems}
+                search={search}
                 compact
               />
             </div>
