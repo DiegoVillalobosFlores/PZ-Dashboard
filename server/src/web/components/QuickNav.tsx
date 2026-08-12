@@ -14,6 +14,7 @@ const DESTINATIONS: Destination[] = [
   { id: 'inventory', path: '/inventory', icon: 'backpack', label: 'Inventory' },
   { id: 'health', path: '/health', icon: 'heart', label: 'Health' },
   { id: 'skills', path: '/skills', icon: 'dumbbell', label: 'Skills' },
+  { id: 'settings', path: '/settings', icon: 'cog', label: 'Settings' },
 ];
 
 // Full-width bottom tab bar on mobile - real thumb reach beats the top-corner

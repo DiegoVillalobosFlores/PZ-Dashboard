@@ -67,7 +67,11 @@ local function tick()
                 local collector = PZDashboard.Collectors[category.id]
                 local ok, data = pcall(collector, player)
                 if ok then
-                    PZDashboard.Writer.write(category.id, data)
+                    -- A collector returning nil means "nothing new" - the
+                    -- snapshot already on disk still stands.
+                    if data ~= nil then
+                        PZDashboard.Writer.write(category.id, data)
+                    end
                     manifest[category.id].updatedAtMs = now
                 else
                     print("[PZDashboard] collector '" .. category.id .. "' failed: " .. tostring(data))

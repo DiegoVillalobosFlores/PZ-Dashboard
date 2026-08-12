@@ -150,6 +150,14 @@ export interface AnnotationsSnapshot {
   markers: AnnotationMarkerSnapshot[];
 }
 
+export interface FogSnapshot {
+  unitSquares: number;
+  cellSquares: number;
+  // "cellX,cellY" -> one hex byte per unit row inside the cell, bit i (value
+  // 1 << i) set when that unit is on the player's in-game map.
+  cells: Record<string, string>;
+}
+
 export interface AppearanceWornSnapshot {
   clothingItem: string;
   name: string;
@@ -181,6 +189,7 @@ export interface CategoryMap {
   manifest: ManifestSnapshot;
   commandResult: CommandResultSnapshot;
   map: MapSnapshot;
+  fog: FogSnapshot;
   annotations: AnnotationsSnapshot;
   vehicles: VehiclesSnapshot;
 }

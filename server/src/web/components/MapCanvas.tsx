@@ -17,6 +17,8 @@ import { DEFAULT_MAP_REGION } from '../lib/mapTiles';
 import { useGameSubscription } from '../lib/gameSocket';
 import { useMapFocus } from '../lib/mapFocus';
 import { useModalContext } from './ModalContext';
+import { FogOverlay } from './FogOverlay';
+import { useFogOfWar } from '../lib/settings';
 import { annotationColor } from '../lib/annotations';
 import type { MapPin } from '../mock/gameState';
 import type { VehicleSnapshot } from '../lib/liveTypes';
@@ -185,6 +187,7 @@ export function MapCanvas({
   const [isDragging, setIsDragging] = useState(false);
   const isWide = useMediaQuery('(min-width: 900px)');
   const { isModalOpen } = useModalContext();
+  const [fogOfWar] = useFogOfWar();
   const showMapButtons = isWide || !isModalOpen;
   const [destination, setDestination] = useState<WorldPoint | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[] | null>(null);
@@ -501,6 +504,18 @@ export function MapCanvas({
       >
         {basemap}
 
+        {/* preserveAspectRatio="slice" shows more world than the square
+            viewBox on the long axis, so the sheet is drawn a viewport wider
+            in every direction rather than exactly on the viewBox. */}
+        {fogOfWar && (
+          <FogOverlay
+            x1={center.x - half * 2}
+            y1={center.y - half * 2}
+            x2={center.x + half * 2}
+            y2={center.y + half * 2}
+          />
+        )}
+
         {annotations
           ?.filter((a) => !a.isText)
           .map((a, i) => (
@@ -536,19 +551,22 @@ export function MapCanvas({
               {a.text}
             </text>
           ))}
-        {vehicle && (
+        {vehicle && !position?.inVehicle && (
           <g transform={`translate(${vehicle.x} ${vehicle.y}) scale(${zoomSquares / 500})`}>
             <title>{vehicle.name}</title>
-            {vehicle.dirX !== undefined && vehicle.dirY !== undefined && (
+            {smoothedCenter && (
+              // "It's over here": the arrow sits on the player's side of the car
+              // and points back at it, so panning away from either one still
+              // shows which way to walk.
               <g
-                transform={`rotate(${(Math.atan2(vehicle.dirX, -vehicle.dirY) * 180) / Math.PI}) translate(0 -20) rotate(-45)`}
+                transform={`rotate(${(Math.atan2(vehicle.x - smoothedCenter.x, smoothedCenter.y - vehicle.y) * 180) / Math.PI}) translate(0 20) rotate(-45)`}
               >
                 <Navigation
                   width={14}
                   height={14}
                   x={-7}
                   y={-7}
-                  fill={vehicle.current ? PIN_COLOR.player : 'var(--color-warning)'}
+                  fill="var(--color-warning)"
                   color="white"
                   strokeWidth={1.5}
                 />
@@ -559,7 +577,7 @@ export function MapCanvas({
               height={24}
               x={-12}
               y={-12}
-              fill={vehicle.current ? PIN_COLOR.player : 'var(--color-warning)'}
+              fill="var(--color-warning)"
               color="white"
               strokeWidth={1.5}
             />
@@ -590,7 +608,7 @@ export function MapCanvas({
           />
         )}
 
-        {smoothedCenter && !position?.inVehicle && (
+        {smoothedCenter && (
           <g
             transform={`translate(${smoothedCenter.x} ${smoothedCenter.y}) rotate(${headingDeg}) scale(${zoomSquares / 500})`}
           >

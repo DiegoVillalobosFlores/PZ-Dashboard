@@ -4,6 +4,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { HealthScreen } from './screens/HealthScreen';
 import { InventoryScreen } from './screens/InventoryScreen';
 import { SkillsScreen } from './screens/SkillsScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 
 export function App() {
   return (
@@ -16,6 +17,7 @@ export function App() {
           <Route path="/health" element={<HealthScreen />} />
           <Route path="/inventory" element={<InventoryScreen />} />
           <Route path="/skills" element={<SkillsScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
         </Route>
       </Routes>
     </BrowserRouter>

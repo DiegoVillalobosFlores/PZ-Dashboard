@@ -128,6 +128,91 @@ function PZDashboard.Collectors.vehicles(player)
 end
 
 
+-- WorldMapVisited stores one flag pair per 32x32-square "unit", 8x8 units per
+-- 256-square cell. Only isKnown() is exposed to Lua, so the whole grid has to
+-- be probed a unit at a time; the world is ~314k units, which is far too many
+-- calls for one frame.
+-- ponytail: the grid is swept in FOG_UNITS_PER_PASS slices per collector run,
+-- so a remote reveal (reading a map item) can take a minute to show up. The
+-- area around the player is always swept first so walking reveals immediately.
+local FOG_SQUARES_PER_UNIT = 32
+local FOG_UNITS_PER_CELL = 8
+local FOG_UNITS_PER_PASS = 6000
+local FOG_PLAYER_RADIUS_UNITS = 20
+local FOG_BITS = { 1, 2, 4, 8, 16, 32, 64, 128 }
+
+local fog = { bits = {}, cursor = 0, width = 0, height = 0, originX = 0, originY = 0, dirty = false, emitted = false }
+
+local function fogProbe(visited, ux, uy)
+    if not visited:isKnown(ux * FOG_SQUARES_PER_UNIT + 16, uy * FOG_SQUARES_PER_UNIT + 16) then return end
+
+    local key = math.floor(ux / FOG_UNITS_PER_CELL) .. "," .. math.floor(uy / FOG_UNITS_PER_CELL)
+    local rows = fog.bits[key]
+    if not rows then
+        rows = { 0, 0, 0, 0, 0, 0, 0, 0 }
+        fog.bits[key] = rows
+    end
+
+    local row = uy % FOG_UNITS_PER_CELL + 1
+    local bit = FOG_BITS[ux % FOG_UNITS_PER_CELL + 1]
+    if rows[row] % (bit * 2) < bit then
+        rows[row] = rows[row] + bit
+        fog.dirty = true
+    end
+end
+
+function PZDashboard.Collectors.fog(player)
+    local visited = safe(function() return WorldMapVisited.getInstance() end, nil, "fog.instance")
+    if not visited then return nil end
+
+    if fog.width == 0 then
+        -- WorldMapVisited keeps its own cell bounds private, but they're just
+        -- the world's, so the sweep is sized off the metagrid instead.
+        local grid = safe(function() return getWorld():getMetaGrid() end, nil, "fog.metaGrid")
+        if not grid then return nil end
+        local minCellX = safe(function() return grid:getMinX() end, 0, "fog.minX")
+        local minCellY = safe(function() return grid:getMinY() end, 0, "fog.minY")
+        local maxCellX = safe(function() return grid:getMaxX() end, -1, "fog.maxX")
+        local maxCellY = safe(function() return grid:getMaxY() end, -1, "fog.maxY")
+        fog.originX = minCellX * FOG_UNITS_PER_CELL
+        fog.originY = minCellY * FOG_UNITS_PER_CELL
+        fog.width = (maxCellX - minCellX + 1) * FOG_UNITS_PER_CELL
+        fog.height = (maxCellY - minCellY + 1) * FOG_UNITS_PER_CELL
+        if fog.width <= 0 or fog.height <= 0 then
+            fog.width = 0
+            return nil
+        end
+    end
+
+    local playerUX = math.floor(player:getX() / FOG_SQUARES_PER_UNIT)
+    local playerUY = math.floor(player:getY() / FOG_SQUARES_PER_UNIT)
+    for uy = playerUY - FOG_PLAYER_RADIUS_UNITS, playerUY + FOG_PLAYER_RADIUS_UNITS do
+        for ux = playerUX - FOG_PLAYER_RADIUS_UNITS, playerUX + FOG_PLAYER_RADIUS_UNITS do
+            fogProbe(visited, ux, uy)
+        end
+    end
+
+    local total = fog.width * fog.height
+    for _ = 1, FOG_UNITS_PER_PASS do
+        fogProbe(visited, fog.originX + fog.cursor % fog.width, fog.originY + math.floor(fog.cursor / fog.width))
+        fog.cursor = (fog.cursor + 1) % total
+    end
+
+    if not fog.dirty and fog.emitted then return nil end
+    fog.dirty = false
+    fog.emitted = true
+
+    local cells = {}
+    for key, rows in pairs(fog.bits) do
+        local hex = ""
+        for i = 1, FOG_UNITS_PER_CELL do
+            hex = hex .. string.format("%02x", rows[i])
+        end
+        cells[key] = hex
+    end
+    return { unitSquares = FOG_SQUARES_PER_UNIT, cellSquares = FOG_SQUARES_PER_UNIT * FOG_UNITS_PER_CELL, cells = cells }
+end
+
 local annotationsMapUI = nil
 
 local function getAnnotationsSymbolsAPI()
