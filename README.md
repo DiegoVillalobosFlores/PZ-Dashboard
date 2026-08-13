@@ -112,6 +112,9 @@ second screen the size of an Ayaneo.
   for the exact category schemas, command protocol and install steps.
 - `server/` — one Bun process serving both the API/WebSocket and the React
   frontend. See [`server/README.md`](server/README.md).
+- `docs/plans/` — design notes for work that isn't built yet:
+  [animating the character model](docs/plans/CHARACTER_ANIMATION_PLAN.md) and
+  [a 3D map](docs/plans/MAP_3D_PLAN.md).
 
 ## Quick start
 
