@@ -4,10 +4,10 @@ import { Icon } from './Icon';
 import { iconForItem } from '../lib/itemIcon';
 
 // Real in-game sprite when the mod reports one (item:getTex():getName(),
-// extracted ahead of time from the game's UI.pack/UI2.pack texture atlases
-// into server/public/game-icons/<name>.png) - falls back to the lucide
-// keyword-guess icon when there's no icon name or the sprite 404s (e.g. a
-// name the extraction script doesn't have, or a stale mod build).
+// cropped on demand out of the game's own texture atlases by
+// /game-icons/<name>.png) - falls back to the lucide keyword-guess icon when
+// there's no icon name or the sprite 404s (e.g. a texture only a mod's own
+// pack has, or a stale mod build).
 export function ItemIcon({
   icon,
   name,

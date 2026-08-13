@@ -1,6 +1,7 @@
 import homepage from "../index.html";
 import { join } from "node:path";
 import { PORT } from "./config";
+import { renderIcon } from "./icons";
 import { getRegionMeta, getTilePath, listRegions, worldToTile } from "./map/tiles";
 import { queryVectorMap } from "./map/vectorMap";
 import { findRoute } from "./map/routing";
@@ -11,7 +12,7 @@ import { writeCommand } from "./state/commands";
 import { getAllCategories, getCategory, onCategoryUpdate } from "./state/store";
 import { startWatcher } from "./state/watcher";
 
-await startWatcher();
+void startWatcher();
 
 // All WebSocket clients subscribe to this single topic; the frontend
 // filters by `category` client-side rather than us tracking per-client
@@ -145,16 +146,23 @@ const server = Bun.serve({
         return new Response(String(err), { status: 404 });
       }
     },
-    // Item icons extracted from the game's UI.pack/UI2.pack texture atlases -
-    // filenames match the subtexture names the mod reports as `icon` on
-    // inventory items (item:getTex():getName() in
+    // Item icons cropped out of the game's own texture atlases
+    // (media/texturepacks/*.pack) - names match the subtexture the mod
+    // reports as `icon` on inventory items (item:getTex():getName() in
     // PZDashboard_Collectors.lua), e.g. "Item_Radish.png".
-    "/game-icons/:name": async (req) => {
+    "/game-icons/:name": (req) => {
       const name = req.params.name;
       if (!/^[A-Za-z0-9_]+\.png$/.test(name)) return new Response("Not found", { status: 404 });
-      const file = Bun.file(join(import.meta.dir, "..", "public", "game-icons", name));
-      if (!(await file.exists())) return new Response("Not found", { status: 404 });
-      return new Response(file, { headers: { "Content-Type": "image/png" } });
+      let png: Buffer | null;
+      try {
+        png = renderIcon(name.slice(0, -".png".length));
+      } catch (err) {
+        return new Response(String(err), { status: 500 });
+      }
+      if (!png) return new Response("Not found", { status: 404 });
+      return new Response(new Uint8Array(png), {
+        headers: { "Content-Type": "image/png", "cache-control": "public, max-age=86400" },
+      });
     },
     "/api/map/:region/:zoom/:x/:y": async (req) => {
       const zoom = Number(req.params.zoom);

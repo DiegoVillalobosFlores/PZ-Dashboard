@@ -48,10 +48,27 @@ function ensureExtracted(region: string): Promise<string> {
     }
 
     mkdirSync(destDir, { recursive: true });
-    const proc = Bun.spawn(["unzip", "-o", "-q", zipPath, "-d", destDir]);
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
-      throw new Error(`Failed to extract map tiles for "${region}" (unzip exit ${exitCode})`);
+    const commands = [
+      ["unzip", "-o", "-q", zipPath, "-d", destDir],
+      ["tar", "-xf", zipPath, "-C", destDir],
+    ];
+    let extracted = false;
+    let lastError = "";
+    for (const command of commands) {
+      try {
+        const proc = Bun.spawn(command, { stdout: "ignore", stderr: "ignore" });
+        const exitCode = await proc.exited;
+        if (exitCode === 0) {
+          extracted = true;
+          break;
+        }
+        lastError = `${command[0]} exit ${exitCode}`;
+      } catch {
+        lastError = `${command[0]} unavailable`;
+      }
+    }
+    if (!extracted) {
+      throw new Error(`Failed to extract map tiles for "${region}" (${lastError})`);
     }
 
     await Bun.write(marker, "");

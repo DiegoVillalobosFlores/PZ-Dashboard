@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
-    "build": "bun build ./index.html --outdir dist --minify"
+    "build": "bun build ./index.html --outdir dist --minify",
+    "compile": "bun scripts/compile.ts",
+    "compile:all": "bun scripts/compile.ts --all"
   },
   "devDependencies": {
     "@types/bun": "latest",

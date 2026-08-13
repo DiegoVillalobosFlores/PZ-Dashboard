@@ -1,5 +1,22 @@
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+
+const COMPILED = /\$bunfs|~BUN/.test(import.meta.dir);
+export const APP_DIR = COMPILED ? dirname(process.execPath) : join(import.meta.dir, "..");
+
+if (COMPILED) {
+  const envFile = join(APP_DIR, ".env");
+  if (existsSync(envFile)) {
+    for (const line of readFileSync(envFile, "utf8").split("\n")) {
+      if (/^\s*(#|$)/.test(line)) continue;
+      const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
+      if (!match) continue;
+      const [, key, rawValue = ""] = match;
+      process.env[key!] ??= rawValue.replace(/^(["'])(.*)\1$/, "$2");
+    }
+  }
+}
 
 export const PZ_LUA_DIR = process.env.PZ_LUA_DIR || join(homedir(), "Zomboid", "Lua");
 export const FILE_PREFIX = "PZDashboard_";
@@ -15,4 +32,4 @@ export const POLL_INTERVAL_MS = Number(process.env.PZ_POLL_MS) || 250;
 // media/maps/<Region>/spawnSelectImagePyramid.zip lives. No sane default
 // exists across native/Proton/Windows installs, same as PZ_LUA_DIR.
 export const PZ_INSTALL_DIR = process.env.PZ_INSTALL_DIR || "";
-export const MAP_CACHE_DIR = join(import.meta.dir, "..", ".cache", "maps");
+export const MAP_CACHE_DIR = process.env.PZ_CACHE_DIR || join(APP_DIR, ".cache", "maps");
