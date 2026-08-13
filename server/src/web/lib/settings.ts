@@ -9,3 +9,44 @@ export function useFogOfWar() {
     getInitialValueInEffect: false,
   });
 }
+
+export interface ClusterStatSettings {
+  health: boolean;
+  hunger: boolean;
+  thirst: boolean;
+  fatigue: boolean;
+  stamina: boolean;
+  stress: boolean;
+  panic: boolean;
+  pain: boolean;
+  boredom: boolean;
+  infected: boolean;
+  bleeding: boolean;
+}
+
+export interface ConditionClusterSettings extends ClusterStatSettings {
+  showCluster: boolean;
+}
+
+export const DEFAULT_CLUSTER_SETTINGS: ConditionClusterSettings = {
+  showCluster: true,
+  health: true,
+  hunger: true,
+  thirst: true,
+  fatigue: true,
+  stamina: true,
+  stress: true,
+  panic: true,
+  pain: true,
+  boredom: true,
+  infected: true,
+  bleeding: true,
+};
+
+export function useConditionClusterSettings() {
+  return useLocalStorage<ConditionClusterSettings>({
+    key: 'pz-dashboard.conditionCluster',
+    defaultValue: DEFAULT_CLUSTER_SETTINGS,
+    getInitialValueInEffect: false,
+  });
+}

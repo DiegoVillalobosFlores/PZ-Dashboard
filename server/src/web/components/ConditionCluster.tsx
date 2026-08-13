@@ -3,6 +3,7 @@ import { Icon } from './Icon';
 import { GlassPanel } from './GlassPanel';
 import { healthColor, vitalColor } from '../lib/vitals';
 import { useGameSubscription } from '../lib/gameSocket';
+import { useConditionClusterSettings } from '../lib/settings';
 import { statusToVitals, statusToConditions } from '../lib/transformLiveState';
 import { mockVitals } from '../mock/gameState';
 
@@ -149,11 +150,20 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
   const world = useGameSubscription('world-stats', (msg) =>
     msg.category === 'status' ? msg.data : undefined,
   );
+  const [settings] = useConditionClusterSettings();
+
+  if (!settings.showCluster) return null;
 
   const iconSize = compact ? 17 : 20;
 
   const healthChip = (
-    <Tooltip label={vitalsLabel('health', vitals.health)} styles={TOOLTIP_STYLES} withArrow arrowSize={6}>
+    <Tooltip
+      key="health"
+      label={vitalsLabel('health', vitals.health)}
+      styles={TOOLTIP_STYLES}
+      withArrow
+      arrowSize={6}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 5 : 6, cursor: 'default', flexShrink: 0 }}>
         <Icon name="heart" size={iconSize} color={healthColor(vitals.health)} />
         <span
@@ -171,11 +181,14 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
   );
 
   const vehicleChip = position?.inVehicle ? (
-    <Icon name="car" size={iconSize} color="var(--color-accent)" />
+    <Icon key="vehicle" name="car" size={iconSize} color="var(--color-accent)" />
   ) : null;
 
   const worldStats = world ? (
-    <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 7 : 10, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', fontSize: compact ? 11 : 12, whiteSpace: 'nowrap' }}>
+    <div
+      key="world"
+      style={{ display: 'flex', alignItems: 'center', gap: compact ? 7 : 10, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', fontSize: compact ? 11 : 12, whiteSpace: 'nowrap' }}
+    >
       <span>{String(world.hour).padStart(2, '0')}:{String(world.minute).padStart(2, '0')}</span>
       <span>DAY {world.day}</span>
       <span>{world.day}/{world.month}</span>
@@ -183,10 +196,67 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
     </div>
   ) : null;
 
+  const vitalItems = [
+    settings.hunger && <MiniVital key="hunger" name="hunger" icon="drumstick" value={vitals.hunger} compact={compact} />,
+    settings.thirst && <MiniVital key="thirst" name="thirst" icon="droplet" value={vitals.thirst} compact={compact} />,
+    settings.fatigue && <MiniVital key="fatigue" name="fatigue" icon="moon" value={vitals.fatigue} compact={compact} />,
+    settings.stamina && <MiniVital key="stamina" name="stamina" icon="zap" value={vitals.stamina} compact={compact} />,
+  ].filter(Boolean);
+
+  const condItems = conditions
+    ? [
+        settings.stress && (
+          <MiniCond key="stress" name="stress" icon="brain" value={conditions.stress} compact={compact} severe={conditions.stress > 60} />
+        ),
+        settings.panic && (
+          <MiniCond key="panic" name="panic" icon="alert-triangle" value={conditions.panic} compact={compact} severe={conditions.panic > 60} />
+        ),
+        settings.pain && (
+          <MiniCond key="pain" name="pain" icon="activity" value={conditions.pain} compact={compact} severe={conditions.pain > 60} />
+        ),
+        settings.boredom && (
+          <MiniCond key="boredom" name="boredom" icon="flame" value={conditions.boredom} compact={compact} severe={false} />
+        ),
+        settings.infected && <MiniFlag key="infected" name="infected" icon="skull" active={conditions.infected} compact={compact} />,
+        settings.bleeding && <MiniFlag key="bleeding" name="bleeding" icon="droplet" active={conditions.bleeding} compact={compact} />,
+      ].filter(Boolean)
+    : [];
+
+  const compactCondItems = conditions
+    ? [
+        settings.stress && (
+          <MiniCond key="stress" name="stress" icon="brain" value={conditions.stress} compact={compact} severe={conditions.stress > 60} />
+        ),
+        settings.panic && (
+          <MiniCond key="panic" name="panic" icon="alert-triangle" value={conditions.panic} compact={compact} severe={conditions.panic > 60} />
+        ),
+        settings.pain && (
+          <MiniCond key="pain" name="pain" icon="activity" value={conditions.pain} compact={compact} severe={conditions.pain > 60} />
+        ),
+      ].filter(Boolean)
+    : [];
+
+  const compactFlagItems = conditions
+    ? [
+        settings.infected && conditions.infected && <MiniFlag key="infected" name="infected" icon="skull" active compact={compact} />,
+        settings.bleeding && conditions.bleeding && <MiniFlag key="bleeding" name="bleeding" icon="droplet" active compact={compact} />,
+      ].filter(Boolean)
+    : [];
+
   // Mobile: one full-width row so the strip reads at a glance without eating
   // two lines of the map's top edge - the wide layout keeps the stacked
   // two-row pill since it already has a whole side of the screen to itself.
   if (compact) {
+    const groups = [
+      [vehicleChip, worldStats],
+      settings.health ? [healthChip] : [],
+      vitalItems,
+      compactCondItems,
+      compactFlagItems,
+    ]
+      .map((group) => group.filter(Boolean))
+      .filter((group) => group.length > 0);
+
     return (
       <GlassPanel
         cornerBrackets={{ length: 12, thickness: 2, inset: 3, opacity: 0.85 }}
@@ -199,44 +269,10 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
           overflowX: 'auto',
         }}
       >
-        {vehicleChip}
-        {worldStats}
-        <Divider height={16} />
-        {healthChip}
-        <Divider height={16} />
-        <MiniVital name="hunger" icon="drumstick" value={vitals.hunger} compact={compact} />
-        <MiniVital name="thirst" icon="droplet" value={vitals.thirst} compact={compact} />
-        <MiniVital name="fatigue" icon="moon" value={vitals.fatigue} compact={compact} />
-        <MiniVital name="stamina" icon="zap" value={vitals.stamina} compact={compact} />
-        {conditions && (
-          <>
-            <Divider height={16} />
-            <MiniCond
-              name="stress"
-              icon="brain"
-              value={conditions.stress}
-              compact={compact}
-              severe={conditions.stress > 60}
-            />
-            <MiniCond
-              name="panic"
-              icon="alert-triangle"
-              value={conditions.panic}
-              compact={compact}
-              severe={conditions.panic > 60}
-            />
-            <MiniCond
-              name="pain"
-              icon="activity"
-              value={conditions.pain}
-              compact={compact}
-              severe={conditions.pain > 60}
-            />
-            {(conditions.infected || conditions.bleeding) && <Divider height={16} />}
-            {conditions.infected && <MiniFlag name="infected" icon="skull" active compact={compact} />}
-            {conditions.bleeding && <MiniFlag name="bleeding" icon="droplet" active compact={compact} />}
-          </>
-        )}
+        {groups.flatMap((group, i) => {
+          const divider = i < groups.length - 1 ? <Divider key={`d${i}`} height={16} /> : null;
+          return [...group, divider];
+        })}
       </GlassPanel>
     );
   }
@@ -253,44 +289,16 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {vehicleChip}
-        {healthChip}
-        <MiniVital name="hunger" icon="drumstick" value={vitals.hunger} compact={compact} />
-        <MiniVital name="thirst" icon="droplet" value={vitals.thirst} compact={compact} />
-        <MiniVital name="fatigue" icon="moon" value={vitals.fatigue} compact={compact} />
-        <MiniVital name="stamina" icon="zap" value={vitals.stamina} compact={compact} />
+        {settings.health && healthChip}
+        {vitalItems}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <Divider height={18} />
-        {conditions ? (
-          <>
-            <MiniCond
-              name="stress"
-              icon="brain"
-              value={conditions.stress}
-              compact={compact}
-              severe={conditions.stress > 60}
-            />
-            <MiniCond
-              name="panic"
-              icon="alert-triangle"
-              value={conditions.panic}
-              compact={compact}
-              severe={conditions.panic > 60}
-            />
-            <MiniCond
-              name="pain"
-              icon="activity"
-              value={conditions.pain}
-              compact={compact}
-              severe={conditions.pain > 60}
-            />
-            <MiniCond name="boredom" icon="flame" value={conditions.boredom} compact={compact} severe={false} />
-            <MiniFlag name="infected" icon="skull" active={conditions.infected} compact={compact} />
-            <MiniFlag name="bleeding" icon="droplet" active={conditions.bleeding} compact={compact} />
-          </>
-        ) : null}
-      </div>
+      {condItems.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <Divider height={18} />
+          {condItems}
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <Divider height={18} />
