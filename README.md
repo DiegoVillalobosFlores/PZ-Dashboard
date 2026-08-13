@@ -15,6 +15,12 @@ Project Zomboid  ──(JSON files in <Zomboid>/Lua/)──>  Bun server  ──
                  <──(PZDashboard_command.json)─────
 ```
 
+![Map screen](docs/screenshots/home.webp)
+
+The map is the home screen and stays mounted behind everything else: pan and
+zoom survive navigation, the player marker eases between position fixes, and
+fog of war hides whatever you haven't uncovered in the in-game map yet.
+
 ## Features
 
 ### Live state, streamed out of the game
@@ -63,12 +69,42 @@ timed actions and special cases:
 
 ### The dashboard itself
 
-- Fullscreen live map with an eased player marker, vehicles and annotations,
-  responsive between a phone layout and a wide handheld layout.
-- Health screen with a live 3D render of your character, built from the
-  game's own meshes and textures using the ids the mod reports.
-- Inventory, skills, and weapon/clothing selection drawers — all grouped by
-  the game's own item categories, all acting on the live game.
+Five screens, all sharing one persistent shell: the map, the vitals pill, the
+nav rail and the hotbar never unmount, so switching screens never resets the
+map or drops a frame of the marker's easing.
+
+**Health** — a live 3D render of your character, built from the game's own
+meshes and textures using the ids the mod reports. Drag to spin it. The
+equipment grid beside it is every body location, and tapping one opens a
+drawer to change what's worn there.
+
+![Health screen](docs/screenshots/health.webp)
+
+**Inventory** — every container in reach at once: your inventory and bags, the
+vehicle's glovebox and trunk when driving, nearby crates, corpses, floor bags
+and loose ground items. Search spans all of them, items are grouped by the
+game's own categories, and moving something between two containers goes
+through vanilla's own handlers, animations and all.
+
+![Inventory screen](docs/screenshots/inventory.webp)
+
+**Skills** — every perk with its level and XP bar, grouped by the category the
+game itself puts it in, so Build 42's newer skills show up without a code
+change here.
+
+![Skills screen](docs/screenshots/skills.webp)
+
+**Settings** — dashboard-side toggles, including fog of war. The mod-side
+switches (which categories stream, and how often) live in-game under
+**Options > Mods > PZ Dashboard**.
+
+![Settings screen](docs/screenshots/settings.webp)
+
+Every screen is responsive between a phone layout and a wide handheld layout,
+so the same dashboard works on a phone propped next to the keyboard or on a
+second screen the size of an Ayaneo.
+
+<img src="docs/screenshots/mobile-health.webp" width="320" alt="Health screen on a phone">
 
 ## Layout
 
