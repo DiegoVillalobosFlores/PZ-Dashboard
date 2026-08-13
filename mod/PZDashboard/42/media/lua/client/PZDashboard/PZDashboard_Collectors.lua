@@ -129,9 +129,10 @@ end
 
 
 -- WorldMapVisited stores one flag pair per 32x32-square "unit", 8x8 units per
--- 256-square cell. Only isKnown() is exposed to Lua, so the whole grid has to
--- be probed a unit at a time; the world is ~314k units, which is far too many
--- calls for one frame.
+-- 256-square cell: VISITED is set by walking past, KNOWN only by reading a map
+-- item, so a unit counts as seen if it carries either. Only the per-unit
+-- queries are exposed to Lua, so the whole grid has to be probed a unit at a
+-- time; the world is ~314k units, which is far too many calls for one frame.
 -- ponytail: the grid is swept in FOG_UNITS_PER_PASS slices per collector run,
 -- so a remote reveal (reading a map item) can take a minute to show up. The
 -- area around the player is always swept first so walking reveals immediately.
@@ -144,7 +145,9 @@ local FOG_BITS = { 1, 2, 4, 8, 16, 32, 64, 128 }
 local fog = { bits = {}, cursor = 0, width = 0, height = 0, originX = 0, originY = 0, dirty = false, emitted = false }
 
 local function fogProbe(visited, ux, uy)
-    if not visited:isKnown(ux * FOG_SQUARES_PER_UNIT + 16, uy * FOG_SQUARES_PER_UNIT + 16) then return end
+    local squareX = ux * FOG_SQUARES_PER_UNIT + 16
+    local squareY = uy * FOG_SQUARES_PER_UNIT + 16
+    if not visited:isVisited(squareX, squareY) and not visited:isKnown(squareX, squareY) then return end
 
     local key = math.floor(ux / FOG_UNITS_PER_CELL) .. "," .. math.floor(uy / FOG_UNITS_PER_CELL)
     local rows = fog.bits[key]
