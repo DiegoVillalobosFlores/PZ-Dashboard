@@ -58,6 +58,7 @@ type ClothingDef = {
   baseTextures: string[];
   attachments: string[];
   attachBone: string;
+  hatCategory: string;
 };
 
 async function clothingDef(name: string): Promise<ClothingDef | null> {
@@ -79,6 +80,7 @@ async function clothingDef(name: string): Promise<ClothingDef | null> {
         baseTextures: tagValues(xml, "m_BaseTextures").filter(Boolean),
         attachments,
         attachBone: tagValue(xml, "m_AttachBone"),
+        hatCategory: tagValue(xml, "m_HatCategory"),
       };
     } catch {
       def = null;
@@ -89,7 +91,7 @@ async function clothingDef(name: string): Promise<ClothingDef | null> {
   return def;
 }
 
-type Style = { model: string; texture: string };
+type Style = { model: string; texture: string; alternates: Map<string, string> };
 let hairStyles: Map<string, Style> | null = null;
 let beardStyles: Map<string, Style> | null = null;
 
@@ -106,7 +108,19 @@ async function loadHairStyles(): Promise<Map<string, Style>> {
       const prefix = match[1] === "male" ? "m:" : "f:";
       const body = match[2]!;
       const name = tagValue(body, "name");
-      if (name) styles.set(prefix + name.toLowerCase(), { model: tagValue(body, "model"), texture: tagValue(body, "texture") });
+      if (!name) continue;
+      // <alternate category="Group01" style="Hat" /> is how the game swaps a
+      // style for one that fits under a hat of that category - which is also
+      // the only thing that stops long hair spearing through the crown.
+      const alternates = new Map<string, string>();
+      for (const alt of body.matchAll(/<alternate\s+category="([^"]*)"\s+style="([^"]*)"/g)) {
+        alternates.set(alt[1]!, alt[2]!);
+      }
+      styles.set(prefix + name.toLowerCase(), {
+        model: tagValue(body, "model"),
+        texture: tagValue(body, "texture"),
+        alternates,
+      });
     }
   }
   hairStyles = styles;
@@ -123,7 +137,13 @@ async function loadBeardStyles(): Promise<Map<string, Style>> {
     for (const match of xml.matchAll(/<style>([\s\S]*?)<\/style>/g)) {
       const body = match[1]!;
       const name = tagValue(body, "name");
-      if (name) styles.set(name.toLowerCase(), { model: tagValue(body, "model"), texture: tagValue(body, "texture") });
+      if (name) {
+        styles.set(name.toLowerCase(), {
+          model: tagValue(body, "model"),
+          texture: tagValue(body, "texture"),
+          alternates: new Map(),
+        });
+      }
     }
   }
   beardStyles = styles;
@@ -227,6 +247,8 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
     missing.push(bodyModel);
   }
 
+  let hatCategory = "";
+
   for (const [index, worn] of (appearance.worn ?? []).entries()) {
     const itemName = worn.clothingItem;
     if (!itemName) continue;
@@ -235,6 +257,7 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
       missing.push(`clothingItems/${itemName}.xml`);
       continue;
     }
+    if (def.hatCategory) hatCategory = def.hatCategory;
 
     const modelPath = female ? def.femaleModel || def.maleModel : def.maleModel || def.femaleModel;
     const hasModel = Boolean(modelPath);
@@ -281,7 +304,13 @@ export async function buildFigure(appearance: Appearance): Promise<Figure> {
 
   const hairName = appearance.hairModel?.trim();
   if (hairName) {
-    const style = (await loadHairStyles()).get(`${female ? "f:" : "m:"}${hairName.toLowerCase()}`);
+    const prefix = female ? "f:" : "m:";
+    const styles = await loadHairStyles();
+    let style = styles.get(prefix + hairName.toLowerCase());
+    if (style && hatCategory) {
+      const alternate = style.alternates.get(hatCategory) ?? style.alternates.get("default");
+      style = (alternate && styles.get(prefix + alternate.toLowerCase())) || style;
+    }
     if (style?.model && (await resolveModelPath(style.model))) {
       parts.push({
         id: "hair",
