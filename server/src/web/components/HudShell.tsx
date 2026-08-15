@@ -67,8 +67,9 @@ function HudShellInner() {
       <MapCanvas pins={mockMapPins} />
       {isWide ? (
         <>
-          <div style={{ position: 'absolute', top: 24, left: 116, zIndex: 2 }}>
-            {connection.connected && connection.modConnected ? <ConditionCluster compact={false} /> : <ConnectionStatus connected={connection.connected} />}
+          <div style={{ position: 'absolute', top: 24, left: 116, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+            <ConditionCluster compact={false} />
+            {(!connection.connected || !connection.modConnected) && <ConnectionStatus connected={connection.connected} />}
           </div>
           <div style={{ position: 'absolute', left: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 2 }}>
             <QuickNav currentId={currentId} />
@@ -84,9 +85,14 @@ function HudShellInner() {
               right: 0,
               zIndex: 2,
               padding: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              alignItems: 'center',
             }}
           >
-            {connection.connected && connection.modConnected ? <ConditionCluster compact /> : <ConnectionStatus connected={connection.connected} />}
+            <ConditionCluster compact />
+            {(!connection.connected || !connection.modConnected) && <ConnectionStatus connected={connection.connected} />}
           </div>
           <QuickNav currentId={currentId} />
         </>
