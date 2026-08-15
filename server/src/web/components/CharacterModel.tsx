@@ -254,56 +254,6 @@ function toGeometry(mesh: MeshData): THREE.BufferGeometry {
 }
 
 const LAYER_BODY = 0;
-const LAYER_CLOTHING = 2;
-
-const COVER_MARGIN = 0.02;
-
-// Garments are open shells - trousers are a tube open at the waist and at both
-// hems - so parity along any one direction lies: a single ray calls a thigh
-// below a skirt hem "inside", and a near-vertical ray fired from deep inside a
-// trouser leg escapes through the opening with zero hits and calls it
-// "outside". Neither unanimity nor a single ray survives that; a majority of
-// spread directions does, because the lateral rays that actually cross cloth
-// outnumber the ones that slip out an opening.
-// Kept near-horizontal on purpose: a torso or a leg is a vertical tube, so a
-// sideways ray has to cross cloth to get out, while an up/down one just leaves
-// by the neck, waist or hem. The small y offsets only break ties with
-// perfectly axis-aligned triangles.
-const PARITY_RAYS = [
-  new THREE.Vector3(0.97, 0.13, 0.21).normalize(),
-  new THREE.Vector3(-0.62, -0.11, 0.78).normalize(),
-  new THREE.Vector3(-0.44, 0.09, -0.89).normalize(),
-];
-
-// Being inside a garment is not on its own a reason to delete body geometry.
-// The reason this culling exists at all is that the two shells interpenetrate,
-// and that only happens where they nearly touch. A crotch sitting 0.09 deep
-// inside a mini skirt pokes through nothing - but it *is* visible through the
-// gap between the legs, so deleting it opens a wedge onto the skirt's unlit
-// inner face. So cull only what the cloth is actually hugging.
-// ponytail: fixed depth read off the mini-skirt/female-body pair (poke-through
-// vertices measured under 0.031, the visible-through-the-gap ones over 0.043);
-// per-garment depth from its own shell thickness if some outfit misbehaves.
-const CULL_DEPTH = COVER_MARGIN * 2;
-
-function isInsideGarment(
-  point: THREE.Vector3,
-  garments: THREE.Mesh[],
-  raycaster: THREE.Raycaster,
-): boolean {
-  for (const garment of garments) {
-    let inside = 0;
-    let nearest = Infinity;
-    for (const ray of PARITY_RAYS) {
-      raycaster.set(point, ray);
-      const hits = raycaster.intersectObject(garment, false);
-      if (hits.length % 2 === 1) inside += 1;
-      if (hits.length && hits[0]!.distance < nearest) nearest = hits[0]!.distance;
-    }
-    if (inside * 2 > PARITY_RAYS.length && nearest < CULL_DEPTH) return true;
-  }
-  return false;
-}
 
 function dressPanelVertices(mesh: MeshData): Set<number> {
   const vertices = new Set<number>();
@@ -314,25 +264,18 @@ function dressPanelVertices(mesh: MeshData): Set<number> {
   return vertices;
 }
 
-function clothedBodyIndices(mesh: MeshData, geometry: THREE.BufferGeometry, garments: THREE.Mesh[]): number[] {
+// Body and garments are separate interpenetrating shells, so in principle the
+// body triangles under cloth want removing. In practice every point-in-mesh
+// test tried here cost more than it bought: garments are open shells, so
+// "inside" is ill-defined near a hem, and deleting geometry that is deep
+// inside a garment - a crotch under a skirt - opens a wedge onto the garment's
+// unlit inner face, which reads far worse than the interpenetration it avoids.
+// Layer polygonOffset already keeps cloth in front of skin where they touch.
+// Only the hidden Bip01_Dress* panels have to go; they are a slab between the
+// legs that is never right.
+function clothedBodyIndices(mesh: MeshData): number[] {
   const dress = dressPanelVertices(mesh);
-  if (!garments.length && !dress.size) return mesh.indices;
-
-  const positions = geometry.getAttribute('position');
-  const normals = geometry.getAttribute('normal');
-  const raycaster = new THREE.Raycaster();
-  const probe = new THREE.Vector3();
-  const covered: boolean[] = [];
-
-  for (let v = 0; garments.length && v < positions.count; v += 1) {
-    probe.fromBufferAttribute(positions, v);
-    if (normals) {
-      probe.x -= normals.getX(v) * COVER_MARGIN;
-      probe.y -= normals.getY(v) * COVER_MARGIN;
-      probe.z -= normals.getZ(v) * COVER_MARGIN;
-    }
-    covered[v] = isInsideGarment(probe, garments, raycaster);
-  }
+  if (!dress.size) return mesh.indices;
 
   const kept: number[] = [];
   for (let i = 0; i < mesh.indices.length; i += 3) {
@@ -340,7 +283,6 @@ function clothedBodyIndices(mesh: MeshData, geometry: THREE.BufferGeometry, garm
     const b = mesh.indices[i + 1]!;
     const c = mesh.indices[i + 2]!;
     if (dress.has(a) || dress.has(b) || dress.has(c)) continue;
-    if (covered[a] && covered[b] && covered[c]) continue;
     kept.push(a, b, c);
   }
   return kept;
@@ -610,19 +552,6 @@ export function CharacterModel({
         return transformed ? poseArmsDown(transformed, posedArms, part?.attachBone) : transformed;
       });
 
-      const garments: THREE.Mesh[] = [];
-      figure.parts.forEach((part, index) => {
-        const mesh = meshes[index];
-        // Bone-attached props (hats, glasses, watches) are single open shells:
-        // a cone with no bottom cap reads as "inside" for points beside the
-        // brim, so the parity test eats a ring of face triangles. They cover
-        // whatever they sit on anyway, so they don't get a vote.
-        if (part.layer !== LAYER_CLOTHING || part.attachBone || !mesh) return;
-        const probe = new THREE.Mesh(toGeometry(mesh), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
-        probe.updateMatrixWorld();
-        garments.push(probe);
-      });
-
       return Promise.all(figure.parts.map(async (part, index) => {
         const mesh = meshes[index];
         if (!mesh) return null;
@@ -647,7 +576,7 @@ export function CharacterModel({
 
         const geometry = toGeometry(mesh);
         if (part.layer === LAYER_BODY) {
-          geometry.setIndex(clothedBodyIndices(mesh, geometry, garments));
+          geometry.setIndex(clothedBodyIndices(mesh));
         }
 
         const object = new THREE.Mesh(geometry, material);
