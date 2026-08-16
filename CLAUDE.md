@@ -6,6 +6,17 @@ server, and this is the second-screen UI that displays and acts on it. See
 
 Don't write any code comments this is the most important rule you need to follow
 
+## Plans
+
+Plans written through the OpenSpec skills stay where `openspec new change`
+puts them, in `openspec/changes/<name>/`. Don't relocate them: the
+`openspec` CLI only scans that directory, and moving a change out breaks
+`status`, `validate`, `apply` and `archive` for it.
+
+`docs/plans/` holds the older standalone design documents
+(`CHARACTER_ANIMATION_PLAN.md`, `MAP_3D_PLAN.md`) — freeform prose that
+predates the OpenSpec workflow, not change artifacts.
+
 ## Working efficiently
 
 Context is re-sent on every turn, so anything pulled in early is paid for
