@@ -253,41 +253,14 @@ function toGeometry(mesh: MeshData): THREE.BufferGeometry {
   return geometry;
 }
 
-const LAYER_BODY = 0;
-
-function dressPanelVertices(mesh: MeshData): Set<number> {
-  const vertices = new Set<number>();
-  for (const binding of mesh.skin ?? []) {
-    if (!binding.bone.includes('Dress')) continue;
-    for (const vertex of binding.indices) vertices.add(vertex);
-  }
-  return vertices;
-}
-
-// Body and garments are separate interpenetrating shells, so in principle the
-// body triangles under cloth want removing. In practice every point-in-mesh
-// test tried here cost more than it bought: garments are open shells, so
-// "inside" is ill-defined near a hem, and deleting geometry that is deep
-// inside a garment - a crotch under a skirt - opens a wedge onto the garment's
-// unlit inner face, which reads far worse than the interpenetration it avoids.
-// Layer polygonOffset already keeps cloth in front of skin where they touch.
-// Only the hidden Bip01_Dress* panels have to go; they are a slab between the
-// legs that is never right.
-function clothedBodyIndices(mesh: MeshData): number[] {
-  const dress = dressPanelVertices(mesh);
-  if (!dress.size) return mesh.indices;
-
-  const kept: number[] = [];
-  for (let i = 0; i < mesh.indices.length; i += 3) {
-    const a = mesh.indices[i]!;
-    const b = mesh.indices[i + 1]!;
-    const c = mesh.indices[i + 2]!;
-    if (dress.has(a) || dress.has(b) || dress.has(c)) continue;
-    kept.push(a, b, c);
-  }
-  return kept;
-}
-
+// The body mesh renders whole. Two kinds of triangle removal were tried here
+// and both did more damage than the artefact they targeted: a point-in-mesh
+// test against the garments (open shells, so "inside" is ill-defined at a hem,
+// and it deleted the crotch under a skirt) and a cull of the Bip01_Dress*
+// skinned vertices. Those Dress bones are not a hidden slab on this body -
+// they skin the upper thighs, so dropping them cut both legs off on a diagonal
+// under the hem and left a wedge onto the backdrop. Layer polygonOffset
+// already keeps cloth in front of skin where the two shells touch.
 function useFigure(): Figure | null {
   const [figure, setFigure] = useState<Figure | null>(null);
   const signatureRef = useRef<string>('');
@@ -575,10 +548,6 @@ export function CharacterModel({
         }
 
         const geometry = toGeometry(mesh);
-        if (part.layer === LAYER_BODY) {
-          geometry.setIndex(clothedBodyIndices(mesh));
-        }
-
         const object = new THREE.Mesh(geometry, material);
         object.renderOrder = part.layer;
         return object;
