@@ -1,20 +1,22 @@
+import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMediaQuery } from '@mantine/hooks';
 import { Icon } from './Icon';
 
 interface Destination {
-  id: string;
-  path: string;
-  icon: string;
-  label: string;
+	id: string;
+	path: string;
+	icon: string;
+	label: string;
+	shortcut: string;
 }
 
 const DESTINATIONS: Destination[] = [
-  { id: 'map', path: '/', icon: 'map-pin', label: 'Map' },
-  { id: 'inventory', path: '/inventory', icon: 'backpack', label: 'Inventory' },
-  { id: 'health', path: '/health', icon: 'heart', label: 'Health' },
-  { id: 'skills', path: '/skills', icon: 'dumbbell', label: 'Skills' },
-  { id: 'settings', path: '/settings', icon: 'cog', label: 'Settings' },
+	{ id: 'map', path: '/', icon: 'map-pin', label: 'Map', shortcut: '1' },
+	{ id: 'inventory', path: '/inventory', icon: 'backpack', label: 'Inventory', shortcut: '2' },
+	{ id: 'health', path: '/health', icon: 'heart', label: 'Health', shortcut: '3' },
+	{ id: 'skills', path: '/skills', icon: 'dumbbell', label: 'Skills', shortcut: '4' },
+	{ id: 'settings', path: '/settings', icon: 'cog', label: 'Settings', shortcut: '5' },
 ];
 
 // Full-width bottom tab bar on mobile - real thumb reach beats the top-corner
@@ -27,8 +29,17 @@ export const MOBILE_NAV_HEIGHT = 60;
 // tile carries the frosted glass itself rather than the flat tile-chip
 // background used inside the panels.
 export function QuickNav({ currentId }: { currentId: string }) {
-  const isWide = useMediaQuery('(min-width: 900px)');
-  const navigate = useNavigate();
+	const isWide = useMediaQuery('(min-width: 900px)');
+	const navigate = useNavigate();
+
+	useEffect(() => {
+		const onKeyDown = (event: KeyboardEvent) => {
+			const destination = DESTINATIONS.find((d) => d.shortcut === event.key);
+			if (destination) navigate(destination.path);
+		};
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [navigate]);
 
   if (isWide) {
     return (
@@ -55,12 +66,13 @@ export function QuickNav({ currentId }: { currentId: string }) {
                 padding: 0,
               }}
             >
-              <Icon
+								<Icon
                 name={d.icon}
                 size={28}
                 color={active ? '#ffffff' : 'var(--color-text-secondary)'}
                 strokeWidth={active ? 2.5 : 2}
-              />
+								/>
+								<span style={{ position: 'absolute', top: 5, right: 7, fontSize: 10, color: active ? '#ffffff' : 'var(--color-text-tertiary)' }}>{d.shortcut}</span>
             </button>
           );
         })}
@@ -120,12 +132,13 @@ export function QuickNav({ currentId }: { currentId: string }) {
                 }}
               />
             )}
-            <Icon
+							<Icon
               name={d.icon}
               size={22}
               color={active ? 'var(--color-accent)' : 'var(--color-text-secondary)'}
               strokeWidth={active ? 2.5 : 2}
-            />
+							/>
+							<span style={{ fontSize: 9, color: active ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }}>{d.shortcut}</span>
             <span
               className="pz-label"
               style={{
