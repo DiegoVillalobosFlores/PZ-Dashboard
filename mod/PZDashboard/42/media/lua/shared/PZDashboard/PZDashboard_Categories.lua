@@ -11,6 +11,7 @@ PZDashboard.Categories = {
     { id = "toolbar",   optionName = "ToolbarEnabled",   intervalOption = "ToolbarInterval",    defaultInterval = 1.0, maxInterval = 30, label = "Toolbar" },
     { id = "equipment", optionName = "EquipmentEnabled", intervalOption = "EquipmentInterval",  defaultInterval = 1.0, maxInterval = 30, label = "Equipment" },
     { id = "appearance", optionName = "AppearanceEnabled", intervalOption = "AppearanceInterval", defaultInterval = 2.0, maxInterval = 60, label = "Character Model" },
+    { id = "traits",    optionName = "TraitsEnabled",    intervalOption = "TraitsInterval",    defaultInterval = 10.0, maxInterval = 60, label = "Traits" },
 }
 
 return PZDashboard.Categories

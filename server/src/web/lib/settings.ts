@@ -10,6 +10,14 @@ export function useFogOfWar() {
   });
 }
 
+export function useShowTraits() {
+  return useLocalStorage({
+    key: 'pz-dashboard.showTraits',
+    defaultValue: true,
+    getInitialValueInEffect: false,
+  });
+}
+
 export interface ClusterStatSettings {
   health: boolean;
   hunger: boolean;

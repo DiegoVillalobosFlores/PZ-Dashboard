@@ -95,6 +95,26 @@ export interface SkillsSnapshot {
   perks: SkillPerkSnapshot[];
 }
 
+export interface TraitXpBoostSnapshot {
+  perk: string;
+  perkName: string;
+  level: number;
+}
+
+export interface TraitSnapshot {
+  id: string;
+  label: string;
+  description: string;
+  cost: number;
+  profession: boolean;
+  icon: string;
+  xpBoosts: TraitXpBoostSnapshot[];
+}
+
+export interface TraitsSnapshot {
+  traits: TraitSnapshot[];
+}
+
 export interface ManifestEntry {
   enabled: boolean;
   updatedAtMs?: number;
@@ -186,6 +206,7 @@ export interface CategoryMap {
   toolbar: ToolbarSnapshot;
   equipment: EquipmentSnapshot;
   skills: SkillsSnapshot;
+  traits: TraitsSnapshot;
   manifest: ManifestSnapshot;
   commandResult: CommandResultSnapshot;
   map: MapSnapshot;

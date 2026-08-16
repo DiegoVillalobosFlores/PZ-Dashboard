@@ -3,6 +3,7 @@ import { GlassPanel } from '../components/GlassPanel';
 import { ScreenModal } from '../components/ScreenModal';
 import {
   useFogOfWar,
+  useShowTraits,
   useConditionClusterSettings,
   type ClusterStatSettings,
 } from '../lib/settings';
@@ -89,6 +90,7 @@ function SectionLabel({ children }: { children: string }) {
 
 export function SettingsScreen() {
   const [fogOfWar, setFogOfWar] = useFogOfWar();
+  const [showTraits, setShowTraits] = useShowTraits();
   const [settings, setSettings] = useConditionClusterSettings();
 
   const setStat = (key: keyof ClusterStatSettings) => (checked: boolean) =>
@@ -149,6 +151,13 @@ export function SettingsScreen() {
         </label>
 
         <div style={{ marginTop: 16 }}>
+          <SettingRow
+            title="Traits list"
+            hint="Show character traits on the Health screen"
+            checked={showTraits}
+            onChange={setShowTraits}
+          />
+
           <SettingRow
             title="Conditions cluster"
             hint="Show the vitals and conditions pill on the map"

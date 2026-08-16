@@ -354,9 +354,12 @@ export function CharacterModel({
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(boxRef.current.width, boxRef.current.height);
+    renderer.setSize(boxRef.current.width, boxRef.current.height, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    renderer.domElement.style.display = 'block';
     renderer.domElement.style.cursor = 'grab';
     renderer.domElement.style.touchAction = 'none';
 
@@ -485,7 +488,7 @@ export function CharacterModel({
       const box = entries[0]?.contentRect;
       if (!box || box.width <= 0 || box.height <= 0) return;
       boxRef.current = { width: box.width, height: box.height };
-      renderer.setSize(box.width, box.height);
+      renderer.setSize(box.width, box.height, false);
       camera.aspect = box.width / box.height;
       camera.updateProjectionMatrix();
       applyCamera();
@@ -614,6 +617,7 @@ export function CharacterModel({
         style={{
           position: 'absolute',
           inset: 0,
+          overflow: 'hidden',
           opacity: ready ? 1 : 0,
           transition: 'opacity 240ms ease',
         }}

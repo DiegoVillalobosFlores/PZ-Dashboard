@@ -313,6 +313,57 @@ function PZDashboard.Collectors.skills(player)
     return { perks = perks }
 end
 
+function PZDashboard.Collectors.traits(player)
+    local traits = {}
+    local knownTraits = safe(function() return player:getCharacterTraits():getKnownTraits() end, nil, "traits.knownTraits")
+    if not knownTraits then return { traits = traits } end
+
+    local count = safe(function() return knownTraits:size() end, 0, "traits.count")
+    for i = 0, count - 1 do
+        local traitType = safe(function() return knownTraits:get(i) end, nil, "traits.type")
+        if traitType then
+            local trait = safe(function()
+                return CharacterTraitDefinition.getCharacterTraitDefinition(traitType)
+            end, nil, "traits.definition")
+            local xpBoosts = {}
+            local boostMap = trait and safe(function() return trait:getXpBoosts() end, nil, "traits.xpBoosts") or nil
+            if boostMap then
+                local boostTable = safe(function() return transformIntoKahluaTable(boostMap) end, {}, "traits.xpBoostTable")
+                for perk, level in pairs(boostTable) do
+                    table.insert(xpBoosts, {
+                        perk = safe(function() return perk:toString() end, "", "traits.xpBoost.perk"),
+                        perkName = safe(function() return PerkFactory.getPerkName(perk) end, "", "traits.xpBoost.perkName"),
+                        level = safe(function() return level:intValue() end, 0, "traits.xpBoost.level"),
+                    })
+                end
+            end
+
+            local icon = ""
+            if trait then
+                icon = safe(function()
+                    local texture = trait:getTexture()
+                    if not texture then return "" end
+                    local name = texture:getName()
+                    if not name then return "" end
+                    name = tostring(name):match("([^/\\]+)$") or tostring(name)
+                    return name:gsub("%.png$", "")
+                end, "", "traits.icon")
+            end
+
+            table.insert(traits, {
+                id = safe(function() return traitType:getName() end, "", "traits.id"),
+                label = trait and safe(function() return trait:getLabel() end, "", "traits.label") or "",
+                description = trait and safe(function() return trait:getDescription() end, "", "traits.description") or "",
+                cost = trait and safe(function() return trait:getCost() end, 0, "traits.cost") or 0,
+                profession = trait and safe(function() return trait.isProfessionTrait end, false, "traits.profession") or false,
+                icon = icon,
+                xpBoosts = xpBoosts,
+            })
+        end
+    end
+    return { traits = traits }
+end
+
 function PZDashboard.Collectors.toolbar(player)
     local attachedSlots = {}
     local attached = safe(function() return player:getAttachedItems() end, nil, "toolbar.attached")
