@@ -14,7 +14,7 @@
 - [x] 1.4 Derive `icon` from `trait:getTexture():getName()`, stripping any
       directory and `.png` suffix so it matches the `/game-icons/:name` route;
       empty string when the trait has no texture
-- [ ] 1.5 Deploy (`bun scripts/deploy-mod.ts`), reload Lua, and confirm
+- [x] 1.5 Deploy (`bun scripts/deploy-mod.ts`), reload Lua, and confirm
       `PZDashboard_traits.json` lands in `PZ_LUA_DIR` with no errors in
       `console.txt`
 
@@ -22,9 +22,9 @@
 
 - [x] 2.1 Add `TraitXpBoostSnapshot`, `TraitSnapshot`, `TraitsSnapshot` and
       `CategoryMap.traits` to `server/src/web/lib/liveTypes.ts`
-- [ ] 2.2 Confirm `/api/state/traits` and the `/ws` push both carry the new
+- [x] 2.2 Confirm `/api/state/traits` and the `/ws` push both carry the new
       category with no server code change (watcher is filename-driven)
-- [ ] 2.3 Confirm `/game-icons/<icon>.png` resolves for the icons the live
+- [x] 2.3 Confirm `/game-icons/<icon>.png` resolves for the icons the live
       character's traits report; note any that 404
 
 ## 3. Frontend: traits list
@@ -48,7 +48,7 @@
       model in the wide branch (fixed narrow column, own scroll, model keeps
       its current `maxModelWidth`)
 - [x] 4.2 In the compact branch, stack the list above the model
-- [ ] 4.3 Verify at both layouts (mobile 390x844, Ayaneo 1620x1080) that the
+- [x] 4.3 Verify at both layouts (mobile 390x844, Ayaneo 1620x1080) that the
       model still drags to spin and that showing a tooltip moves nothing
 
 ## 5. Checks
@@ -56,5 +56,5 @@
 - [x] 5.1 Add a unit test for `lib/traits.ts` covering: boosts present → chips
       with signed levels, no boosts → description fallback, ordering
 - [x] 5.2 Run `bun test` and the project's typecheck
-- [ ] 5.3 Verify end to end against the running game: a trait added or removed
+- [x] 5.3 Verify end to end against the running game: a trait added or removed
       via the in-game stats window shows up in the list within one interval
