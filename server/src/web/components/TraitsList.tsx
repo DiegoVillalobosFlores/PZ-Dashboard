@@ -108,6 +108,20 @@ function TraitRow({ trait }: { trait: TraitSnapshot }) {
       w={240}
       withArrow
       events={{ hover: true, focus: true, touch: true }}
+      styles={{
+        tooltip: {
+          background: 'var(--color-glass-panel)',
+          border: '1px solid var(--color-border)',
+          backdropFilter: 'var(--frost-blur)',
+          borderRadius: 'var(--radius-sharp)',
+          boxShadow: '0 3px 16px rgba(0, 0, 0, 0.4)',
+          color: 'var(--color-text-primary)',
+          fontSize: 12,
+          fontFamily: 'var(--font-mono)',
+          padding: '8px 12px',
+          lineHeight: 1.5,
+        },
+      }}
       style={{ flex: '1 1 160px', minWidth: 0 }}
     >
       <div
