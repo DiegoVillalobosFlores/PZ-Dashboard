@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useMediaQuery } from '@mantine/hooks';
 import { AnnotationsDrawer } from './AnnotationsDrawer';
 import { ConditionCluster } from './ConditionCluster';
@@ -24,6 +24,7 @@ const RIGHT_INSET = { wide: 80, compact: 12 };
 function HudShellInner() {
   const isWide = useMediaQuery('(min-width: 900px)');
   const currentId = useCurrentDestinationId();
+  const navigate = useNavigate();
   const [annotationsOpen, setAnnotationsOpen] = useState(false);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const hotbarRef = useRef<HTMLDivElement | null>(null);
@@ -34,6 +35,14 @@ function HudShellInner() {
   // to clear the screen edge.
   const hotbarBottom = isWide ? 40 : MOBILE_NAV_HEIGHT + 10;
   const hotbarForcedSingleRow = isModalOpen;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') navigate('/');
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [navigate]);
 
   useEffect(() => {
     const shell = shellRef.current;
