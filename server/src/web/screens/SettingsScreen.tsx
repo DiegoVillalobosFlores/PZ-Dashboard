@@ -153,7 +153,7 @@ export function SettingsScreen() {
         <div style={{ marginTop: 16 }}>
           <SettingRow
             title="Traits list"
-            hint="Show character traits on the Health screen"
+            hint="Show character traits on the Skills screen"
             checked={showTraits}
             onChange={setShowTraits}
           />

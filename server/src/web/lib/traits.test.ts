@@ -11,6 +11,7 @@ function trait(overrides: Partial<TraitSnapshot> = {}): TraitSnapshot {
     profession: false,
     icon: '',
     xpBoosts: [],
+    modifiers: [],
     ...overrides,
   };
 }
@@ -36,6 +37,20 @@ test('returns boost effects with signed levels', () => {
 test('returns description when no boosts exist', () => {
   expect(traitEffects(trait({ description: 'First line of effect' }))).toEqual([
     { kind: 'description', text: 'First line of effect' },
+  ]);
+});
+
+test('returns game modifiers before boost effects', () => {
+  expect(
+    traitEffects(
+      trait({
+        modifiers: [{ label: 'Panic gain', value: '+100%' }],
+        xpBoosts: [{ perk: 'Fitness', perkName: 'Fitness', level: 4 }],
+      }),
+    ),
+  ).toEqual([
+    { kind: 'modifier', text: 'Panic gain +100%' },
+    { kind: 'boost', perk: 'Fitness', level: 4 },
   ]);
 });
 

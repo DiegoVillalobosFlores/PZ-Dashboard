@@ -313,6 +313,187 @@ function PZDashboard.Collectors.skills(player)
     return { perks = perks }
 end
 
+local FIXED_TRAIT_MODIFIERS = {
+    AdrenalineJunkie = {
+        { label = "Panic speed", value = "+20% to +25%" },
+    },
+    AllThumbs = {
+        { label = "Inventory transfer time", value = "+100%" },
+    },
+    Athletic = {
+        { label = "Grapple effectiveness", value = "+25%" },
+    },
+    Axeman = {
+        { label = "Axe chopping speed", value = "+25%" },
+    },
+    Brave = {
+        { label = "Panic gain", value = "-70%" },
+        { label = "Grapple effectiveness", value = "+10%" },
+    },
+    Clumsy = {
+        { label = "Footstep sound radius", value = "+20%" },
+    },
+    Cowardly = {
+        { label = "Panic gain", value = "+100%" },
+        { label = "Grapple effectiveness", value = "-10%" },
+    },
+    Crafty = {
+        { label = "Crafting XP gain", value = "+30%" },
+    },
+    Dextrous = {
+        { label = "Inventory transfer time", value = "-50%" },
+    },
+    Desensitized = {
+        { label = "Panic gain", value = "-85%" },
+        { label = "Panic after gain", value = "resets to 0" },
+    },
+    Deaf = {
+        { label = "Perception radius", value = "2 tiles" },
+    },
+    Emaciated = {
+        { label = "Starting weight", value = "50 kg" },
+        { label = "Grapple effectiveness", value = "-40%" },
+    },
+    FastLearner = {
+        { label = "Skill XP gain", value = "+30% except Strength/Fitness" },
+    },
+    FastReader = {
+        { label = "Reading time", value = "-30%" },
+    },
+    Graceful = {
+        { label = "Footstep sound radius", value = "-40%" },
+    },
+    HardOfHearing = {
+        { label = "Perception radius", value = "-1 tile" },
+    },
+    HeartyAppetite = {
+        { label = "Hunger increase", value = "+50%" },
+    },
+    HighThirst = {
+        { label = "Thirst increase", value = "+100%" },
+    },
+    KeenHearing = {
+        { label = "Perception radius", value = "+3 tiles" },
+    },
+    LightEater = {
+        { label = "Hunger increase", value = "-25%" },
+    },
+    LowThirst = {
+        { label = "Thirst increase", value = "-50%" },
+    },
+    NeedsLessSleep = {
+        { label = "Fatigue increase", value = "-30%" },
+    },
+    NeedsMoreSleep = {
+        { label = "Fatigue increase", value = "+30%" },
+    },
+    Obese = {
+        { label = "Starting weight", value = "105 kg" },
+        { label = "Grapple effectiveness", value = "+5%" },
+    },
+    Outdoorsman = {
+        { label = "Tree clothing defense", value = "+50 points" },
+    },
+    Overweight = {
+        { label = "Starting weight", value = "95 kg" },
+        { label = "Grapple effectiveness", value = "+10%" },
+    },
+    Pacifist = {
+        { label = "Combat XP gain", value = "-25%" },
+    },
+    SlowLearner = {
+        { label = "Skill XP gain", value = "-30% except Strength/Fitness" },
+    },
+    SlowReader = {
+        { label = "Reading time", value = "+30%" },
+    },
+    SpeedDemon = {
+        { label = "Grapple effectiveness", value = "+15%" },
+    },
+    Strong = {
+        { label = "Grapple effectiveness", value = "+25%" },
+    },
+    ThickSkinned = {
+        { label = "Zombie injury protection", value = "x1.3" },
+        { label = "Tree clothing damage chance", value = "+7 points" },
+    },
+    ThinSkinned = {
+        { label = "Zombie injury protection", value = "x0.77" },
+        { label = "Tree clothing damage chance", value = "-3 points" },
+    },
+    Underweight = {
+        { label = "Starting weight", value = "70 kg" },
+    },
+    VeryUnderweight = {
+        { label = "Starting weight", value = "60 kg" },
+        { label = "Grapple effectiveness", value = "-20%" },
+    },
+}
+
+local function signedValue(value)
+    if value > 0 then return "+" .. tostring(value) end
+    return tostring(value)
+end
+
+local function traitModifiers(traitName)
+    local modifiers = {}
+    local fixed = FIXED_TRAIT_MODIFIERS[traitName]
+    if fixed then
+        for _, modifier in ipairs(fixed) do
+            table.insert(modifiers, modifier)
+        end
+    else
+        local normalizedName = string.lower(traitName)
+        for name, entries in pairs(FIXED_TRAIT_MODIFIERS) do
+            if string.lower(name) == normalizedName then
+                for _, modifier in ipairs(entries) do
+                    table.insert(modifiers, modifier)
+                end
+                break
+            end
+        end
+    end
+
+    local forageDefinition
+    if forageSystem and forageSystem.forageSkillDefinitions then
+        local normalizedName = string.lower(traitName)
+        for name, definition in pairs(forageSystem.forageSkillDefinitions) do
+            if string.lower(tostring(name)) == normalizedName then
+                forageDefinition = definition
+                break
+            end
+        end
+    end
+    if forageDefinition then
+        local visionBonus = forageDefinition.visionBonus or 0
+        if visionBonus ~= 0 then
+            table.insert(modifiers, { label = "Foraging vision", value = signedValue(visionBonus) .. " squares" })
+        end
+        local weatherEffect = forageDefinition.weatherEffect or 0
+        if weatherEffect ~= 0 then
+            table.insert(modifiers, { label = "Foraging weather reduction", value = signedValue(weatherEffect) .. "%" })
+        end
+        local darknessEffect = forageDefinition.darknessEffect or 0
+        if darknessEffect ~= 0 then
+            table.insert(modifiers, { label = "Foraging darkness reduction", value = signedValue(darknessEffect) .. "%" })
+        end
+        local specialisations = forageDefinition.specialisations
+        if specialisations then
+            for category, bonus in pairs(specialisations) do
+                if bonus ~= 0 then
+                    table.insert(modifiers, {
+                        label = "Foraging " .. tostring(category),
+                        value = signedValue(bonus) .. "%",
+                    })
+                end
+            end
+        end
+    end
+
+    table.sort(modifiers, function(a, b) return a.label < b.label end)
+    return modifiers
+end
+
 function PZDashboard.Collectors.traits(player)
     local traits = {}
     local knownTraits = safe(function() return player:getCharacterTraits():getKnownTraits() end, nil, "traits.knownTraits")
@@ -322,6 +503,7 @@ function PZDashboard.Collectors.traits(player)
     for i = 0, count - 1 do
         local traitType = safe(function() return knownTraits:get(i) end, nil, "traits.type")
         if traitType then
+            local id = safe(function() return traitType:getName() end, "", "traits.id")
             local trait = safe(function()
                 return CharacterTraitDefinition.getCharacterTraitDefinition(traitType)
             end, nil, "traits.definition")
@@ -355,9 +537,10 @@ function PZDashboard.Collectors.traits(player)
                 label = trait and safe(function() return trait:getLabel() end, "", "traits.label") or "",
                 description = trait and safe(function() return trait:getDescription() end, "", "traits.description") or "",
                 cost = trait and safe(function() return trait:getCost() end, 0, "traits.cost") or 0,
-                profession = trait and safe(function() return trait.isProfessionTrait end, false, "traits.profession") or false,
+                profession = trait and safe(function() return trait:isFree() end, false, "traits.profession") or false,
                 icon = icon,
                 xpBoosts = xpBoosts,
+                modifiers = traitModifiers(id),
             })
         end
     end

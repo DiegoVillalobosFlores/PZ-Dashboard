@@ -2,6 +2,7 @@ import type { TraitSnapshot } from './liveTypes';
 
 export type TraitEffect =
   | { kind: 'boost'; perk: string; level: number }
+  | { kind: 'modifier'; text: string }
   | { kind: 'description'; text: string };
 
 export function sortTraits(traits: TraitSnapshot[] | undefined): TraitSnapshot[] {
@@ -9,13 +10,16 @@ export function sortTraits(traits: TraitSnapshot[] | undefined): TraitSnapshot[]
 }
 
 export function traitEffects(trait: TraitSnapshot): TraitEffect[] {
-  if (trait.xpBoosts.length > 0) {
-    return trait.xpBoosts.map((boost) => ({
+  const modifiers = (trait.modifiers ?? []).map((modifier) => ({
+    kind: 'modifier' as const,
+    text: `${modifier.label} ${modifier.value}`,
+  }));
+  const boosts = trait.xpBoosts.map((boost) => ({
       kind: 'boost' as const,
       perk: boost.perkName || boost.perk,
       level: boost.level,
     }));
-  }
+  if (modifiers.length > 0 || boosts.length > 0) return [...modifiers, ...boosts];
   return [{ kind: 'description', text: trait.description }];
 }
 

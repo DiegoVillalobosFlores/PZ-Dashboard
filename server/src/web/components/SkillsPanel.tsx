@@ -1,6 +1,8 @@
 import { Icon } from './Icon';
 import { GlassPanel } from './GlassPanel';
+import { TraitsList } from './TraitsList';
 import { MAX_SKILL_LEVEL, type SkillCategoryState, type SkillState } from '../lib/skills';
+import { useShowTraits } from '../lib/settings';
 
 const MAX_LEVEL = MAX_SKILL_LEVEL;
 
@@ -141,6 +143,7 @@ export function SkillsPanel({
   emptyMessage?: string;
 }) {
   const tileWidth = compact ? 86 : 172;
+  const [showTraits] = useShowTraits();
 
   const header = (
     <span
@@ -157,6 +160,29 @@ export function SkillsPanel({
     </span>
   );
 
+  const skillsContent = (
+    <div
+      style={{
+        flex: compact ? '0 0 auto' : '0 1 auto',
+        minWidth: 0,
+        minHeight: 0,
+        overflowY: compact ? 'visible' : 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+      }}
+    >
+      {categories.length === 0 && emptyMessage && (
+        <div style={{ padding: '24px 0', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
+          {emptyMessage}
+        </div>
+      )}
+      {categories.map((category) => (
+        <CategorySection key={category.id} category={category} tileWidth={tileWidth} compact={compact} />
+      ))}
+    </div>
+  );
+
   return (
     <GlassPanel
       cornerBrackets={{ length: 20, thickness: 2, inset: 6, opacity: 0.85 }}
@@ -171,17 +197,36 @@ export function SkillsPanel({
         gap: 14,
         padding: '20px 24px',
       }}
-    >
+      >
       {header}
-      <div style={{ flex: compact ? '1 1 0' : '0 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {categories.length === 0 && emptyMessage && (
-          <div style={{ padding: '24px 0', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
-            {emptyMessage}
+      <div
+        style={{
+          flex: compact ? '1 1 0' : '0 1 auto',
+          minWidth: 0,
+          minHeight: 0,
+          width: '100%',
+          display: compact ? 'flex' : 'grid',
+          flexDirection: compact ? 'column' : undefined,
+          gridTemplateColumns: compact ? undefined : showTraits ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr',
+          alignItems: 'stretch',
+          gap: compact ? 14 : 24,
+          overflow: compact ? 'auto' : 'hidden',
+        }}
+      >
+        {showTraits && (
+          <div
+            style={{
+              flex: compact ? '0 0 auto' : undefined,
+              minWidth: 0,
+              minHeight: 0,
+              width: '100%',
+              overflowY: compact ? 'visible' : 'auto',
+            }}
+          >
+            <TraitsList compact={compact} />
           </div>
         )}
-        {categories.map((category) => (
-          <CategorySection key={category.id} category={category} tileWidth={tileWidth} compact={compact} />
-        ))}
+        {skillsContent}
       </div>
     </GlassPanel>
   );

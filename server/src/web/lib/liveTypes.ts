@@ -101,6 +101,11 @@ export interface TraitXpBoostSnapshot {
   level: number;
 }
 
+export interface TraitModifierSnapshot {
+  label: string;
+  value: string;
+}
+
 export interface TraitSnapshot {
   id: string;
   label: string;
@@ -109,6 +114,7 @@ export interface TraitSnapshot {
   profession: boolean;
   icon: string;
   xpBoosts: TraitXpBoostSnapshot[];
+  modifiers: TraitModifierSnapshot[];
 }
 
 export interface TraitsSnapshot {

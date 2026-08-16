@@ -2,10 +2,8 @@ import { Loader } from '@mantine/core';
 import { CharacterModel } from './CharacterModel';
 import { EquipTile } from './EquipTile';
 import { GlassPanel } from './GlassPanel';
-import { TraitsList } from './TraitsList';
 import { useGameSubscription } from '../lib/gameSocket';
 import { paperdollSlots, type EquipSlotState, type PaperdollSlotId } from '../lib/equipment';
-import { useShowTraits } from '../lib/settings';
 import { useModalContext } from './ModalContext';
 
 const ALL_SLOTS: PaperdollSlotId[] = [
@@ -30,7 +28,6 @@ export function EquipmentPanel({
 }) {
   const { isModalOpen } = useModalContext();
   const inModal = isModalOpen;
-  const [showTraits] = useShowTraits();
 
   const slots =
     useGameSubscription('paperdoll', (msg) =>
@@ -50,7 +47,7 @@ export function EquipmentPanel({
   const gridGap = compact ? 12 : 16;
   const sideGap = compact ? 18 : 32;
   const paddingX = compact ? 26 : 40;
-  const panelWidth = compact ? 520 : showTraits ? 976 : 680;
+  const panelWidth = compact ? 520 : 680;
   const tileBox = compact ? 54 : 72;
   const tileGridWidth = 2 * tileBox + gridGap;
   const modelPanelWidth = compact ? panelWidth : 680;
@@ -135,11 +132,6 @@ export function EquipmentPanel({
         </div>
         {isCompactModal ? (
           <>
-            {showTraits && (
-              <div style={{ width: '100%' }}>
-                <TraitsList compact />
-              </div>
-            )}
             <div
               style={{
                 width: '100%',
@@ -181,11 +173,6 @@ export function EquipmentPanel({
               minHeight: 0,
             }}
           >
-            {showTraits && (
-              <div style={{ width: 264, flexShrink: 1, minWidth: 0, minHeight: 0 }}>
-                <TraitsList />
-              </div>
-            )}
             <div style={{ width: maxModelWidth, flexShrink: 0 }}>
               <CharacterModel fallback={<Loader color="var(--color-text-tertiary)" />} />
             </div>

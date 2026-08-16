@@ -52,13 +52,15 @@ function EffectContent({ effect }: { effect: TraitEffect }) {
     return (
       <span
         style={{
-          display: '-webkit-box',
+          display: 'block',
           overflow: 'hidden',
+          minWidth: 0,
+          maxWidth: '100%',
+          overflowWrap: 'anywhere',
+          whiteSpace: 'normal',
           color: 'var(--color-text-tertiary)',
           fontSize: 10,
           lineHeight: 1.25,
-          WebkitBoxOrient: 'vertical',
-          WebkitLineClamp: 1,
         }}
       >
         {effect.text}
@@ -72,6 +74,7 @@ function EffectContent({ effect }: { effect: TraitEffect }) {
         display: 'inline-flex',
         alignItems: 'center',
         maxWidth: '100%',
+        minWidth: 0,
         padding: '2px 5px',
         color: 'var(--color-accent)',
         background: 'var(--color-accent-fill-weak)',
@@ -80,10 +83,11 @@ function EffectContent({ effect }: { effect: TraitEffect }) {
         fontSize: 10,
         lineHeight: 1.2,
         fontFamily: 'var(--font-mono)',
-        whiteSpace: 'nowrap',
+        whiteSpace: 'normal',
+        overflowWrap: 'anywhere',
       }}
     >
-      {effect.perk} {signedLevel(effect.level)}
+      {effect.kind === 'boost' ? `${effect.perk} ${signedLevel(effect.level)}` : effect.text}
     </span>
   );
 }
@@ -104,12 +108,14 @@ function TraitRow({ trait }: { trait: TraitSnapshot }) {
       w={240}
       withArrow
       events={{ hover: true, focus: true, touch: true }}
+      style={{ flex: '1 1 160px', minWidth: 0 }}
     >
       <div
         tabIndex={0}
         aria-label={`${label}: ${trait.description}`}
         style={{
           display: 'flex',
+          flex: '1 1 160px',
           alignItems: 'flex-start',
           gap: 8,
           minWidth: 0,
@@ -121,7 +127,7 @@ function TraitRow({ trait }: { trait: TraitSnapshot }) {
         }}
       >
         <TraitIcon key={trait.icon} icon={trait.icon} />
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span
             className="pz-label"
             style={{
@@ -137,7 +143,7 @@ function TraitRow({ trait }: { trait: TraitSnapshot }) {
           >
             {label}
           </span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, minWidth: 0 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, width: '100%', minWidth: 0 }}>
             {effects.map((effect, index) => (
               <EffectContent key={`${effect.kind}-${index}`} effect={effect} />
             ))}
@@ -148,7 +154,7 @@ function TraitRow({ trait }: { trait: TraitSnapshot }) {
   );
 }
 
-function TraitColumn({
+function TraitGroup({
   label,
   color,
   traits,
@@ -163,19 +169,17 @@ function TraitColumn({
     <div
       style={{
         minWidth: 0,
-        minHeight: 0,
-        height: compact ? undefined : '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: 7,
-        overflowY: compact ? 'visible' : 'auto',
-        overflowX: compact ? 'visible' : 'hidden',
+        alignItems: 'stretch',
+        gap: compact ? 7 : 8,
       }}
     >
       <span
         className="pz-label"
         style={{
           flexShrink: 0,
+          width: 'auto',
           color,
           fontSize: 10,
           fontFamily: 'var(--font-display)',
@@ -185,11 +189,23 @@ function TraitColumn({
       >
         {label}
       </span>
-      {traits.length === 0 ? (
-        <span style={{ color: 'var(--color-text-tertiary)', fontSize: 11 }}>None</span>
-      ) : (
-        traits.map((trait) => <TraitRow key={trait.id} trait={trait} />)
-      )}
+      <div
+        style={{
+          flex: '1 1 auto',
+          minWidth: 0,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignContent: 'flex-start',
+          alignItems: 'flex-start',
+          gap: 7,
+        }}
+      >
+        {traits.length === 0 ? (
+          <span style={{ color: 'var(--color-text-tertiary)', fontSize: 11, paddingTop: 7 }}>None</span>
+        ) : (
+          traits.map((trait) => <TraitRow key={trait.id} trait={trait} />)
+        )}
+      </div>
     </div>
   );
 }
@@ -207,45 +223,29 @@ export function TraitsList({ compact = false }: { compact?: boolean }) {
     <section
       style={{
         width: '100%',
-        height: compact ? undefined : '100%',
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: 8,
+        gap: 0,
       }}
     >
-      <span
-        className="pz-label"
-        style={{
-          flexShrink: 0,
-          color: 'var(--color-accent)',
-          fontSize: 11,
-          fontFamily: 'var(--font-display)',
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-        }}
-      >
-        Traits
-      </span>
       <div
         style={{
-          flex: compact ? undefined : '1 1 0',
           minHeight: 0,
-          overflow: compact ? 'visible' : 'hidden',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-          alignItems: 'stretch',
-          gap: compact ? 12 : 8,
+          display: compact ? 'flex' : 'grid',
+          flexDirection: compact ? 'column' : undefined,
+          gridTemplateColumns: compact ? undefined : 'repeat(2, minmax(0, 1fr))',
+          gap: compact ? 8 : 10,
         }}
       >
         {snapshot === undefined ? (
-          <div style={{ gridColumn: '1 / -1', color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+          <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
             {connected ? 'Waiting for trait data…' : 'Not connected to the dashboard server.'}
           </div>
         ) : (
           <>
-            <TraitColumn label="Positive" color="var(--color-accent)" traits={positiveTraits} compact={compact} />
-            <TraitColumn label="Negative" color="var(--color-danger)" traits={negativeTraits} compact={compact} />
+            <TraitGroup label="Positive" color="var(--color-accent)" traits={positiveTraits} compact={compact} />
+            <TraitGroup label="Negative" color="var(--color-danger)" traits={negativeTraits} compact={compact} />
           </>
         )}
       </div>
