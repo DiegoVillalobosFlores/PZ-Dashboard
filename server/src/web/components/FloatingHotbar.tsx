@@ -1,6 +1,7 @@
 import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 import { EquipTile } from './EquipTile';
 import { GlassPanel } from './GlassPanel';
+import { Divider } from './Divider';
 import { sendAction, useGameSubscription } from '../lib/gameSocket';
 import { hotbarGroups, type EquipSlotState } from '../lib/equipment';
 
@@ -103,14 +104,7 @@ export function FloatingHotbar({
           {groups.map((group, i) => (
             <Fragment key={group.id}>
               {i > 0 && (
-                <span
-                  style={{
-                    width: 1,
-                    alignSelf: 'stretch',
-                    background: 'var(--color-border-default)',
-                    opacity: 0.5,
-                  }}
-                />
+                <Divider />
               )}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <span
@@ -156,14 +150,7 @@ export function FloatingHotbar({
       {groups.map((group, i) => (
         <Fragment key={group.id}>
           {i > 0 && (
-            <span
-              style={{
-                width: 1,
-                alignSelf: 'stretch',
-                background: 'var(--color-border-default)',
-                opacity: 0.5,
-              }}
-            />
+            <Divider />
           )}
           <GlassPanel
             style={{

@@ -9,6 +9,7 @@ export interface Vitals {
 export interface Conditions {
   stress: number;
   panic: number;
+  panicResistance: number;
   boredom: number;
   pain: number;
   infected: boolean;

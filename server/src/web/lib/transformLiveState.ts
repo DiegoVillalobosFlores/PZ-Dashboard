@@ -23,6 +23,7 @@ export function statusToConditions(status: StatusSnapshot): Conditions {
   return {
     stress: pct(status.stress),
     panic: pct(status.panic),
+    panicResistance: status.panicResistance ?? 1,
     boredom: pct(status.boredom),
     pain: pct(status.pain),
     infected: status.infected,

@@ -45,6 +45,11 @@ function PZDashboard.Collectors.status(player)
         stress = safe(function() return stats:get(CharacterStat.STRESS) end, 0, "status.stress"),
         panic = safe(function() return stats:get(CharacterStat.PANIC) end, 0, "status.panic"),
         boredom = safe(function() return stats:get(CharacterStat.BOREDOM) end, 0, "status.boredom"),
+        hoursSurvived = safe(function() return player:getHoursSurvived() end, 0, "status.hoursSurvived"),
+        panicResistance = safe(function()
+            local months = math.floor(math.floor(player:getHoursSurvived() / 24) / 30)
+            return 1 + math.min(months, 5)
+        end, 1, "status.panicResistance"),
         pain = safe(function() return stats:get(CharacterStat.PAIN) end, 0, "status.pain"),
         hour = safe(function() return gameTime:getHour() end, 0, "status.hour"),
         minute = safe(function() return gameTime:getMinutes() end, 0, "status.minute"),

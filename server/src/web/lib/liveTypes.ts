@@ -10,6 +10,8 @@ export interface StatusSnapshot {
   endurance: number;
   stress: number;
   panic: number;
+  hoursSurvived: number;
+  panicResistance: number;
   boredom: number;
   pain: number;
   hour: number;

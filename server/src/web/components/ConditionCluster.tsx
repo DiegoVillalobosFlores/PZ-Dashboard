@@ -1,6 +1,7 @@
 import { Tooltip } from '@mantine/core';
 import { Icon } from './Icon';
 import { GlassPanel } from './GlassPanel';
+import { Divider } from './Divider';
 import { healthColor, vitalColor } from '../lib/vitals';
 import { useGameSubscription } from '../lib/gameSocket';
 import { useConditionClusterSettings } from '../lib/settings';
@@ -10,6 +11,7 @@ import { mockVitals } from '../mock/gameState';
 const TOOLTIP_STYLES = {
   tooltip: {
     background: 'var(--color-glass-panel)',
+    border: '1px solid var(--color-border)',
     backdropFilter: 'var(--frost-blur)',
     borderRadius: 'var(--radius-sharp)',
     boxShadow: '0 3px 16px rgba(0, 0, 0, 0.4)',
@@ -34,10 +36,10 @@ function vitalsLabel(name: string, value: number): string {
   }
 }
 
-function condLabel(name: string, value: number): string {
+function condLabel(name: string, value: number, resist = 1): string {
   switch (name) {
     case 'stress': return `Stress — mental strain. Builds from zombie presence, blood and nightmares. Causes unhappiness. (${value}%)`;
-    case 'panic': return `Panic — fear level. Reduces weapon accuracy and critical hit chance. Triggered by zombies and phobias. (${value}%)`;
+    case 'panic': return `Panic — fear level. Reduces weapon accuracy and critical hit chance. Triggered by zombies and phobias. Fades ${resist}x faster from time survived (+1x per 30 days, caps at 6x on day 150), and twice as fast while asleep. (${value}%)`;
     case 'pain': return `Pain — from injuries. Slows movement and action speed. Painkillers provide temporary relief. (${value}%)`;
     case 'boredom': return `Boredom — mental understimulation. Causes unhappiness over time. Relieved by reading and entertainment. (${value}%)`;
     default: return `${value}%`;
@@ -78,16 +80,18 @@ function MiniCond({
   value,
   compact,
   severe,
+  resist,
 }: {
   name: string;
   icon: string;
   value: number;
   compact: boolean;
   severe: boolean;
+  resist?: number;
 }) {
   const color = severe ? 'var(--color-danger)' : value > 0 ? 'var(--color-warning)' : 'var(--color-text-tertiary)';
   return (
-    <Tooltip label={condLabel(name, value)} styles={TOOLTIP_STYLES} withArrow arrowSize={6}>
+    <Tooltip label={condLabel(name, value, resist)} styles={TOOLTIP_STYLES} withArrow arrowSize={6}>
       <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 3 : 5, cursor: 'default' }}>
         <Icon name={icon} size={compact ? 15 : 18} color={color} />
         <span
@@ -121,19 +125,6 @@ function MiniFlag({ name, icon, active, compact }: { name: string; icon: string;
   );
 }
 
-function Divider({ height }: { height: number }) {
-  return (
-    <span
-      style={{
-        width: 1,
-        height,
-        flexShrink: 0,
-        background: 'var(--color-border-default)',
-        opacity: 0.5,
-      }}
-    />
-  );
-}
 
 export function ConditionCluster({ compact = false }: { compact?: boolean }) {
   const position = useGameSubscription('map:position', (msg) =>
@@ -187,11 +178,20 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
   const worldStats = world ? (
     <div
       key="world"
-      style={{ display: 'flex', alignItems: 'center', gap: compact ? 7 : 10, color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', fontSize: compact ? 11 : 12, whiteSpace: 'nowrap' }}
+      style={{
+        display: 'flex',
+        flexDirection: compact ? 'row' : 'column',
+        alignItems: compact ? 'center' : 'flex-start',
+        gap: compact ? 7 : 2,
+        color: 'var(--color-text-secondary)',
+        fontFamily: 'var(--font-mono)',
+        fontSize: compact ? 11 : 12,
+        whiteSpace: 'nowrap',
+      }}
     >
-      <span>{String(world.hour).padStart(2, '0')}:{String(world.minute).padStart(2, '0')}</span>
-      <span>DAY {world.day}</span>
-      <span>{world.day}/{world.month}</span>
+      <span style={{ color: 'var(--color-accent)' }}>{String(world.hour).padStart(2, '0')}:{String(world.minute).padStart(2, '0')}</span>
+      <span>DAY {Math.floor(world.hoursSurvived / 24) + 1}</span>
+      <span>{world.day + 1}/{world.month + 1}</span>
       <span>{Math.round(world.temperature)}°</span>
     </div>
   ) : null;
@@ -209,7 +209,7 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
           <MiniCond key="stress" name="stress" icon="brain" value={conditions.stress} compact={compact} severe={conditions.stress > 60} />
         ),
         settings.panic && (
-          <MiniCond key="panic" name="panic" icon="alert-triangle" value={conditions.panic} compact={compact} severe={conditions.panic > 60} />
+          <MiniCond key="panic" name="panic" icon="alert-triangle" value={conditions.panic} compact={compact} severe={conditions.panic > 60} resist={conditions.panicResistance} />
         ),
         settings.pain && (
           <MiniCond key="pain" name="pain" icon="activity" value={conditions.pain} compact={compact} severe={conditions.pain > 60} />
@@ -228,7 +228,7 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
           <MiniCond key="stress" name="stress" icon="brain" value={conditions.stress} compact={compact} severe={conditions.stress > 60} />
         ),
         settings.panic && (
-          <MiniCond key="panic" name="panic" icon="alert-triangle" value={conditions.panic} compact={compact} severe={conditions.panic > 60} />
+          <MiniCond key="panic" name="panic" icon="alert-triangle" value={conditions.panic} compact={compact} severe={conditions.panic > 60} resist={conditions.panicResistance} />
         ),
         settings.pain && (
           <MiniCond key="pain" name="pain" icon="activity" value={conditions.pain} compact={compact} severe={conditions.pain > 60} />
@@ -261,18 +261,16 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
       <GlassPanel
         cornerBrackets={{ length: 12, thickness: 2, inset: 3, opacity: 0.85 }}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 9,
           padding: '9px 12px',
           width: '100%',
-          overflowX: 'auto',
         }}
       >
-        {groups.flatMap((group, i) => {
-          const divider = i < groups.length - 1 ? <Divider key={`d${i}`} height={16} /> : null;
-          return [...group, divider];
-        })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, overflowX: 'auto' }}>
+          {groups.flatMap((group, i) => {
+            const divider = i < groups.length - 1 ? <Divider key={`d${i}`} height={16} /> : null;
+            return [...group, divider];
+          })}
+        </div>
       </GlassPanel>
     );
   }
@@ -282,27 +280,27 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
       cornerBrackets={{ length: 12, thickness: 2, inset: 3, opacity: 0.85 }}
       style={{
         display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
+        alignItems: 'center',
+        gap: 14,
         padding: '8px 18px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        {vehicleChip}
-        {settings.health && healthChip}
-        {vitalItems}
-      </div>
+      {worldStats}
+      {worldStats && <Divider />}
 
-      {condItems.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Divider height={18} />
-          {condItems}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {vehicleChip}
+          {settings.health && healthChip}
+          {vitalItems}
         </div>
-      )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <Divider height={18} />
-        {worldStats}
+        {condItems.length > 0 && (
+          <>
+            <Divider orientation="horizontal" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>{condItems}</div>
+          </>
+        )}
       </div>
     </GlassPanel>
   );
