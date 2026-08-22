@@ -6,7 +6,7 @@ description: How to run the Bun server and iterate on the PZ Dashboard Lua mod a
 # PZ mod + server (live game loop)
 
 The mod (`mod/`) streams JSON into a Zomboid data folder; the server
-(`server/`) watches that folder and re-serves it over HTTP. Both pieces are
+(`apps/server/`) watches that folder and re-serves it over HTTP. Both pieces are
 easy to run, but **the game being open is not enough on its own** — you have
 to point the server at the exact folder this specific game process is
 writing to, and the mod's live behavior only reflects what's actually
@@ -42,7 +42,7 @@ Whichever timestamp matches *now* is the directory currently in use.
 Why this matters: the path depends on how the running copy was launched —
 **native Linux** puts it at `~/Zomboid`, while **Proton** (Steam "Play"
 button) puts it somewhere else entirely inside the compatdata prefix. On
-this machine it's currently Proton; `server/.env.local` records the answer
+this machine it's currently Proton; `apps/server/.env.local` records the answer
 from last time:
 
 ```
@@ -60,11 +60,11 @@ repeat it.
 ## 2. Run the server against the confirmed live directory
 
 ```
-cd server
+cd apps/server
 bun run dev
 ```
 
-**The path lives in `server/.env.local`, not on the command line.** Bun
+**The path lives in `apps/server/.env.local`, not on the command line.** Bun
 loads that file automatically, so `PZ_LUA_DIR` (and `PORT`,
 `PZ_INSTALL_DIR`) come from there — read it to see what the server will
 actually use, and if step 1 turned up a different directory, edit
@@ -73,7 +73,7 @@ inline override works for exactly one run and then silently disappears,
 leaving the next run pointed back at the stale value.
 
 Don't fall back to the built-in default (`~/Zomboid/Lua`, see
-`src/config.ts`) — it only applies when `PZ_LUA_DIR` is unset, and it's only
+`apps/server/src/config.ts`) — it only applies when `PZ_LUA_DIR` is unset, and it's only
 correct for a native install.
 
 Verify with:
@@ -83,7 +83,7 @@ curl -sS http://localhost:3000/api/state | python3 -m json.tool
 ```
 
 `updatedAt` on each category reflects the underlying JSON file's mtime (set
-in `src/state/watcher.ts` / `src/state/store.ts`) — compare it to the current
+in `packages/core/state/watcher.ts` / `packages/core/state/store.ts`) — compare it to the current
 time to sanity-check freshness before trusting any value you read. If
 `updatedAt` is far in the past, you're either watching the wrong directory
 (back to step 1) or the mod isn't ticking that category (step 3).
@@ -153,7 +153,7 @@ grep -rn "<symbol>" "$PZ_INSTALL_DIR/media/lua"
 ```
 
 `PZ_INSTALL_DIR` is the game *install* dir (not the Zomboid data dir from
-step 1) and, like `PZ_LUA_DIR`, is recorded in `server/.env.local` — read it
+step 1) and, like `PZ_LUA_DIR`, is recorded in `apps/server/.env.local` — read it
 from there rather than hardcoding a Steam library path, which varies per
 machine. At time of writing it's
 `/games/steamapps/common/ProjectZomboid/`.

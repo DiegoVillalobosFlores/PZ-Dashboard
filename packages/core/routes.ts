@@ -172,7 +172,7 @@ export function makeRoutes(files: GameFiles, codecs: Codecs, options: RouteOptio
 
     let png: Uint8Array<ArrayBuffer> | null;
     try {
-      png = await renderIcon(files, codecs, installDir, name.slice(0, -".png".length));
+      png = await renderIcon(files, codecs, installDir, name.slice(0, -".png".length), cacheDir);
     } catch (err) {
       return new Response(String(err), { status: 500 });
     }

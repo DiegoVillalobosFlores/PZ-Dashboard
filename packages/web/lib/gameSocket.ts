@@ -16,6 +16,21 @@ type MessageListener = (msg: GameStateMessage) => void;
 type ConnectionListener = (connected: boolean) => void;
 type ServerConnectionListener = (snapshot: ConnectionSnapshot) => void;
 
+export type GameTransportHandlers = {
+  onMessage(message: GameStateMessage): void;
+  onOpen(): void;
+  onClose(): void;
+};
+
+export type GameTransportConnection = {
+  send(message: unknown): void;
+  close(): void;
+};
+
+export type GameTransport = {
+  connect(handlers: GameTransportHandlers): GameTransportConnection;
+};
+
 const RECONNECT_DELAY_MS = 2000;
 // Grace period before tearing down a socket nothing is subscribed to. React
 // StrictMode's dev double-mount - and any navigation that momentarily drops
@@ -33,6 +48,7 @@ const MOD_POLL_MS = 1000;
 const messageListeners = new Set<MessageListener>();
 const connectionListeners = new Set<ConnectionListener>();
 const serverConnectionListeners = new Set<ServerConnectionListener>();
+const actionListeners = new Set<ConnectionListener>();
 
 // Last snapshot seen per category. The server replays every category when a
 // socket opens, but the socket now outlives any individual screen - a
@@ -50,6 +66,23 @@ let refCount = 0;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 let idleCloseTimer: ReturnType<typeof setTimeout> | undefined;
 let modPollTimer: ReturnType<typeof setInterval> | undefined;
+let transport: GameTransport | null | undefined;
+let transportConnection: { connection: GameTransportConnection; generation: number } | null = null;
+let transportGeneration = 0;
+let actionsEnabled = true;
+
+export function setGameTransport(next: GameTransport | null | undefined): void {
+  if (transport === next) return;
+  closeSocket();
+  transport = next;
+  if (refCount > 0) connect();
+}
+
+export function setGameActionsEnabled(next: boolean): void {
+  if (actionsEnabled === next) return;
+  actionsEnabled = next;
+  for (const listener of [...actionListeners]) listener(next);
+}
 
 export function randomId(): string {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -78,8 +111,40 @@ function publishServerConnection() {
   for (const listener of [...serverConnectionListeners]) listener(serverConnection);
 }
 
+function receiveMessage(msg: GameStateMessage) {
+  if (latest.get(msg.category)?.updatedAt !== msg.updatedAt) {
+    lastStateAt = Date.now();
+    publishServerConnection();
+  }
+  latest.set(msg.category, msg);
+  for (const listener of [...messageListeners]) listener(msg);
+}
+
+function retryConnection() {
+  clearTimeout(reconnectTimer);
+  if (refCount > 0) reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+}
+
 function connect() {
-  if (socket) return;
+  if (socket || transportConnection) return;
+  if (transport === null) return;
+  if (transport) {
+    const generation = ++transportGeneration;
+    const connection = transport.connect({
+      onMessage: receiveMessage,
+      onOpen: () => {
+        if (transportConnection?.generation === generation) setConnected(true);
+      },
+      onClose: () => {
+        if (transportConnection?.generation !== generation) return;
+        transportConnection = null;
+        setConnected(false);
+        retryConnection();
+      },
+    });
+    transportConnection = { connection, generation };
+    return;
+  }
   const ws = new WebSocket(wsUrl());
   socket = ws;
 
@@ -94,17 +159,11 @@ function connect() {
     }
     if (raw.type !== 'state' || !raw.category) return;
 
-    const msg = {
+    receiveMessage({
       category: raw.category,
       data: raw.data,
       updatedAt: raw.updatedAt ?? Date.now(),
-    } as GameStateMessage;
-    if (latest.get(msg.category)?.updatedAt !== msg.updatedAt) {
-      lastStateAt = Date.now();
-      publishServerConnection();
-    }
-    latest.set(msg.category, msg);
-    for (const listener of [...messageListeners]) listener(msg);
+    } as GameStateMessage);
   };
 
   ws.onclose = () => {
@@ -113,7 +172,7 @@ function connect() {
     if (socket !== ws) return;
     socket = null;
     setConnected(false);
-    if (refCount > 0) reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+    retryConnection();
   };
 
   ws.onerror = () => ws.close();
@@ -121,6 +180,13 @@ function connect() {
 
 function closeSocket() {
   clearTimeout(reconnectTimer);
+  const custom = transportConnection;
+  transportConnection = null;
+  if (custom) {
+    setConnected(false);
+    custom.connection.close();
+    return;
+  }
   const ws = socket;
   socket = null;
   setConnected(false);
@@ -234,12 +300,28 @@ export function useServerConnection(): ConnectionSnapshot {
   return data ?? serverConnection;
 }
 
+export function useGameActionsEnabled(): boolean {
+  const { data } = useSWRSubscription<boolean, Error, string>('game:actions', (_key, { next }) => {
+    const receive: ConnectionListener = (value) => next(null, value);
+    actionListeners.add(receive);
+    receive(actionsEnabled);
+    return () => actionListeners.delete(receive);
+  });
+  return data ?? actionsEnabled;
+}
+
 /**
  * Queues an action for the mod. The server acks immediately; the actual result
  * arrives later as a normal `commandResult` state message, so subscribe to that
  * category if you need to react to it.
  */
 export function sendAction(action: string, params?: Record<string, unknown>): void {
+  if (!actionsEnabled) return;
+  const message = { type: 'action', action, params, requestId: randomId() };
+  if (transportConnection) {
+    transportConnection.connection.send(message);
+    return;
+  }
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  socket.send(JSON.stringify({ type: 'action', action, params, requestId: randomId() }));
+  socket.send(JSON.stringify(message));
 }

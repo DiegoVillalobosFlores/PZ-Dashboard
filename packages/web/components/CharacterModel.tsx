@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useGameSubscription } from '../lib/gameSocket';
+import { useAssetRevision } from '../lib/assetUrl';
 
 type FigurePart = {
   id: string;
@@ -268,6 +269,7 @@ function useFigure(): Figure | null {
   const appearance = useGameSubscription('appearance', (msg) =>
     msg.category === 'appearance' ? msg.updatedAt : undefined,
   );
+  const assetRevision = useAssetRevision();
 
   useEffect(() => {
     let cancelled = false;
@@ -284,7 +286,7 @@ function useFigure(): Figure | null {
     return () => {
       cancelled = true;
     };
-  }, [appearance]);
+  }, [appearance, assetRevision]);
 
   return figure;
 }

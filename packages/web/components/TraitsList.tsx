@@ -1,14 +1,14 @@
-import { useState } from 'react';
 import { Tooltip } from '@mantine/core';
 import { Icon } from './Icon';
 import { useGameConnection, useGameSubscription } from '../lib/gameSocket';
 import { signedLevel, sortTraits, traitEffects, type TraitEffect } from '../lib/traits';
 import type { TraitSnapshot } from '../lib/liveTypes';
+import { useAssetUrl } from '../lib/assetUrl';
 
 function TraitIcon({ icon }: { icon: string }) {
-  const [failed, setFailed] = useState(false);
+  const assetUrl = useAssetUrl(icon ? `/game-icons/${icon}.png` : undefined);
 
-  if (!icon || failed) {
+  if (!assetUrl) {
     return (
       <span
         style={{
@@ -30,11 +30,10 @@ function TraitIcon({ icon }: { icon: string }) {
 
   return (
     <img
-      src={`/game-icons/${icon}.png`}
+      src={assetUrl}
       alt=""
       width={30}
       height={30}
-      onError={() => setFailed(true)}
       style={{
         flexShrink: 0,
         objectFit: 'contain',

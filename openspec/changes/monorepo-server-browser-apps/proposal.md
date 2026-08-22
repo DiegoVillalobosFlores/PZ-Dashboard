@@ -32,22 +32,25 @@ second app cannot reuse any of it.
   `AGENTS.md`, `README.md`, `.zed/rules.md` and `scripts/deploy-mod.ts`
   are updated to match.
 - Introduce a single `GameFiles` port — `read`, `list`, `stat`, `write` — plus
-  two injected codec functions (`decodePng`, `inflateZip`) covering the only
-  two capabilities that are genuinely platform-shaped rather than I/O-shaped.
+  three injected codec functions (`decodePng`, `encodePng`, `inflateZip`)
+  covering the only capabilities that are genuinely platform-shaped rather
+  than I/O-shaped.
   Every module that currently calls `node:fs` or `Bun.spawn` takes these as
   arguments instead.
 - `packages/core` exports the HTTP route table as handler functions returning
   standard `Response` objects, so both apps mount the same contract rather
   than reimplementing it. `apps/server` mounts it on `Bun.serve`;
-  `apps/browser` mounts it in a Service Worker.
-- Add `apps/browser`: a static build of `packages/web` plus a Service Worker
-  that answers `/api/*` and `/game-icons/*` from File System Access handles.
-  Because the worker answers the same URLs the server does, no component in
-  `packages/web` changes.
+  `apps/browser` mounts it in-page.
+- Add `apps/browser`: a static build of `packages/web` that mounts the shared
+  route table in-page and answers `/api/*` and `/game-icons/*` from File System
+  Access handles. Because the same URL space is answered locally, every screen
+  and transform is untouched; the one cost of the in-page shape is that asset
+  URLs become asynchronous.
 - Generalise the live-state transport in `packages/web/lib/gameSocket.ts` so
   it accepts either the existing `/ws` WebSocket (server app) or an in-page
-  file watcher (browser app). This is the one deliberate edit inside the web
-  package.
+  file watcher (browser app). This and the asynchronous asset URL seam in
+  `lib/assetUrl.ts` (consumed by `ItemIcon.tsx` and `TraitsList.tsx`) are the
+  two deliberate edits inside the web package.
 - Both apps ship from the same commit and the same `packages/core`, so the
   JSON contract with the mod cannot drift between them.
 
@@ -79,7 +82,8 @@ unchanged, so no existing requirement changes.
   `server/src/web/` → `packages/web`; `icons.ts`, `map/`, `model/`, `state/`
   → `packages/core`; `index.ts`, `config.ts` → `apps/server`.
 - **Rewritten against the port, not reimplemented**: `map/tiles.ts` (drops
-  `Bun.spawn(["unzip", …])`), `map/vectorMap.ts` (`readFileSync` → port),
+  `Bun.spawn(["unzip", …])` for the shared `packages/core/zip.ts` container
+  parser, which takes the raw-deflate call as an argument), `map/vectorMap.ts` (`readFileSync` → port),
   `icons.ts` (splits: `.pack` index parse is shared, PNG codec is injected),
   `model/assets.ts` (case-insensitive resolve now builds an index from
   `list()`), `state/watcher.ts` and `state/commands.ts`.
@@ -92,8 +96,8 @@ unchanged, so no existing requirement changes.
   `compile:all` move to `apps/server` and keep their current behaviour;
   `apps/browser` gains a static `bun build` target suitable for any static
   host.
-- **Risk**: the Service Worker approach depends on a worker being able to use
-  a `FileSystemDirectoryHandle` retrieved from IndexedDB under a grant issued
-  by the page. This is unverified and gated behind a spike (see `design.md`);
-  the monorepo restructure does not depend on the outcome, and the browser app
-  has a documented in-page fallback if it fails.
+- **Risk, resolved**: the Service Worker approach depended on a worker being
+  able to use a `FileSystemDirectoryHandle` retrieved from IndexedDB under a
+  grant issued by the page. The spike could not run in this checkout, so the
+  browser app ships the documented in-page fallback instead (see `design.md`).
+  The monorepo restructure never depended on the outcome.

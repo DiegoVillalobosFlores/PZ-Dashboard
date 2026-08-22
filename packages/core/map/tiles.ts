@@ -1,6 +1,6 @@
-import { join } from "node:path";
 import type { GameFiles, Codecs } from "../index";
 import { listZip } from "../zip";
+import { joinPath } from "../path";
 
 const PYRAMID_FILE = "spawnSelectImagePyramid.zip";
 const TILE_SIZE = 256;
@@ -9,7 +9,7 @@ function mapsDir(installDir: string): string {
   if (!installDir) {
     throw new Error("PZ_INSTALL_DIR is not set - see .env.example");
   }
-  return join(installDir, "media", "maps");
+  return joinPath(installDir, "media", "maps");
 }
 
 // Each named map region (Muldraugh, KY / West Point, KY / ...) ships its own
@@ -20,7 +20,7 @@ export async function listRegions(files: GameFiles, installDir: string): Promise
   const entries = await files.list(root);
   const regions: string[] = [];
   for (const entry of entries) {
-    if (await files.stat(join(root, entry, PYRAMID_FILE))) regions.push(entry);
+    if (await files.stat(joinPath(root, entry, PYRAMID_FILE))) regions.push(entry);
   }
   return regions.sort();
 }
@@ -30,28 +30,32 @@ const extractions = new Map<string, Promise<string>>();
 // Extracts a region's tile pyramid into a disk cache on first request, then
 // reuses it - a few thousand small PNGs per region, cheap to keep around,
 // expensive-ish (a couple of seconds) to unzip on every request.
-function ensureExtracted(files: GameFiles, codecs: Codecs, installDir: string, cacheDir: string, region: string): Promise<string> {
-  const cached = extractions.get(region);
+function ensureExtracted(files: GameFiles, codecs: Codecs, installDir: string, cacheDir: string, region: string, force = false): Promise<string> {
+  const key = `${installDir}\0${cacheDir}\0${region}`;
+  const cached = extractions.get(key);
   if (cached) return cached;
 
   const promise = (async () => {
-    const destDir = join(cacheDir, region);
-    const marker = join(destDir, ".extracted");
-    if (await files.stat(marker)) return destDir;
+    const destDir = joinPath(cacheDir, region);
+    const marker = joinPath(destDir, ".extracted");
+    if (!force && await files.stat(marker)) return destDir;
 
-    const zipPath = join(mapsDir(installDir), region, PYRAMID_FILE);
+    const zipPath = joinPath(mapsDir(installDir), region, PYRAMID_FILE);
     if (!(await files.stat(zipPath))) {
       throw new Error(`No map imagery for region "${region}"`);
     }
 
     const filesByName = await codecs.inflateZip(await files.read(zipPath));
-    for (const [name, data] of filesByName) await files.write(join(destDir, name), data);
+    for (const [name, data] of filesByName) await files.write(joinPath(destDir, name), data);
     await files.write(marker, "");
     return destDir;
   })();
 
-  extractions.set(region, promise);
-  return promise;
+  extractions.set(key, promise.catch((error) => {
+    extractions.delete(key);
+    throw error;
+  }));
+  return extractions.get(key)!;
 }
 
 export type ZoomLevelMeta = {
@@ -66,7 +70,7 @@ export type ZoomLevelMeta = {
 // Reads tile extents straight from the zip listing (no extraction needed)
 // so metadata is cheap to query even before a region's tiles are cached.
 export async function getRegionMeta(files: GameFiles, installDir: string, region: string): Promise<ZoomLevelMeta[]> {
-  const zipPath = join(mapsDir(installDir), region, PYRAMID_FILE);
+  const zipPath = joinPath(mapsDir(installDir), region, PYRAMID_FILE);
   if (!(await files.stat(zipPath))) {
     throw new Error(`No map imagery for region "${region}"`);
   }
@@ -101,8 +105,15 @@ export async function getRegionMeta(files: GameFiles, installDir: string, region
 }
 
 export async function getTilePath(files: GameFiles, codecs: Codecs, installDir: string, cacheDir: string, region: string, zoom: number, x: number, y: number): Promise<string> {
-  const dir = await ensureExtracted(files, codecs, installDir, cacheDir, region);
-  return join(dir, String(zoom), `tile${x}x${y}.png`);
+  const key = `${installDir}\0${cacheDir}\0${region}`;
+  let dir = await ensureExtracted(files, codecs, installDir, cacheDir, region);
+  let path = joinPath(dir, String(zoom), `tile${x}x${y}.png`);
+  if (!(await files.stat(path)) && await files.stat(joinPath(dir, ".extracted"))) {
+    extractions.delete(key);
+    dir = await ensureExtracted(files, codecs, installDir, cacheDir, region, true);
+    path = joinPath(dir, String(zoom), `tile${x}x${y}.png`);
+  }
+  return path;
 }
 
 // World-square -> zoom-0 pixel scale, per region. Not derived from an

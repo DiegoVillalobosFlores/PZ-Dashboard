@@ -20,6 +20,7 @@ import { useModalContext } from './ModalContext';
 import { FogOverlay } from './FogOverlay';
 import { useFogOfWar } from '../lib/settings';
 import { annotationColor } from '../lib/annotations';
+import { useAssetRevision } from '../lib/assetUrl';
 import type { MapPin } from '../mock/gameState';
 import type { VehicleSnapshot } from '../lib/liveTypes';
 
@@ -188,6 +189,7 @@ export function MapCanvas({
   const isWide = useMediaQuery('(min-width: 900px)');
   const { isModalOpen } = useModalContext();
   const [fogOfWar] = useFogOfWar();
+  const assetRevision = useAssetRevision();
   const showMapButtons = isWide || !isModalOpen;
   const [destination, setDestination] = useState<WorldPoint | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[] | null>(null);
@@ -388,7 +390,7 @@ export function MapCanvas({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [region, fetchCenter?.x, fetchCenter?.y, zoomSquares]);
+  }, [region, fetchCenter?.x, fetchCenter?.y, zoomSquares, assetRevision]);
 
   useEffect(() => {
     if (!destination || !liveCenter) {

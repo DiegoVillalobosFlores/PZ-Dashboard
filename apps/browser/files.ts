@@ -2,37 +2,66 @@ import type { GameFiles } from "../../packages/core";
 
 export type DirectoryHandle = FileSystemDirectoryHandle;
 
-async function file(handle: DirectoryHandle, path: string, create = false) {
-  const parts = path.replaceAll("\\", "/").split("/").filter(Boolean);
-  const name = parts.pop();
-  if (!name) throw new Error("Invalid path");
-  let current = handle;
-  for (const part of parts) current = await current.getDirectoryHandle(part, { create });
-  return current.getFileHandle(name, { create });
+type Root = "data" | "install" | "cache";
+
+function pathParts(path: string): { root: Root; parts: string[] } {
+  const normalized = path.replaceAll("\\", "/");
+  const match = /^\/(data|install|cache)(?:\/(.*))?$/.exec(normalized);
+  if (!match) throw new Error(`Browser file path must start with /data, /install, or /cache: ${path}`);
+  return { root: match[1] as Root, parts: (match[2] ?? "").split("/").filter(Boolean) };
 }
 
-export function makeBrowserFiles(data: DirectoryHandle, install: DirectoryHandle): GameFiles {
+async function directory(handle: DirectoryHandle, parts: string[], create = false): Promise<DirectoryHandle> {
+  let current = handle;
+  for (const part of parts) current = await current.getDirectoryHandle(part, { create });
+  return current;
+}
+
+async function file(handle: DirectoryHandle, parts: string[], create = false): Promise<FileSystemFileHandle> {
+  const name = parts.at(-1);
+  if (!name) throw new Error("Invalid file path");
+  return (await directory(handle, parts.slice(0, -1), create)).getFileHandle(name, { create });
+}
+
+export function makeBrowserFiles(data: DirectoryHandle, install?: DirectoryHandle, cache?: DirectoryHandle): GameFiles {
+  function handleFor(root: Root): DirectoryHandle {
+    if (root === "data") return data;
+    if (root === "install") {
+      if (!install) throw new Error("Install directory access is required for game assets.");
+      return install;
+    }
+    if (!cache) throw new Error("Browser cache is unavailable.");
+    return cache;
+  }
+
   return {
     async read(path) {
-      const handle = await file(install, path);
-      return new Uint8Array(await (await handle.getFile()).arrayBuffer());
+      const { root, parts } = pathParts(path);
+      const entry = await file(handleFor(root), parts);
+      return new Uint8Array(await (await entry.getFile()).arrayBuffer());
     },
     async list(path) {
-      const handle = path ? await data.getDirectoryHandle(path) : data;
+      const { root, parts } = pathParts(path);
+      const handle = await directory(handleFor(root), parts);
       const names: string[] = [];
       for await (const [name] of handle.entries()) names.push(name);
       return names;
     },
     async stat(path) {
       try {
-        const entry = await file(data, path);
-        return { mtimeMs: (await (await entry.getFile()).lastModified) };
-      } catch { return null; }
+        const { root, parts } = pathParts(path);
+        const entry = await file(handleFor(root), parts);
+        return { mtimeMs: (await entry.getFile()).lastModified };
+      } catch {
+        return null;
+      }
     },
     async write(path, content) {
-      const handle = await file(data, path, true);
-      const writer = await handle.createWritable();
-      await writer.write(content);
+      const { root, parts } = pathParts(path);
+      if (root === "install") throw new Error("Game install directory is read-only.");
+      const entry = await file(handleFor(root), parts, true);
+      const writer = await entry.createWritable();
+      await writer.write(content as unknown as FileSystemWriteChunkType);
       await writer.close();
     },
   };
@@ -41,11 +70,12 @@ export function makeBrowserFiles(data: DirectoryHandle, install: DirectoryHandle
 const DB = "pz-dashboard";
 const STORE = "handles";
 
-export async function saveHandles(data: DirectoryHandle, install?: DirectoryHandle) {
+export async function saveHandles(data: DirectoryHandle, install?: DirectoryHandle): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readwrite");
-  tx.objectStore(STORE).put(data, "data");
-  if (install) tx.objectStore(STORE).put(install, "install");
+  const store = tx.objectStore(STORE);
+  store.put(data, "data");
+  if (install) store.put(install, "install");
   await transactionDone(tx);
 }
 
@@ -55,6 +85,10 @@ export async function restoreHandles(): Promise<{ data?: DirectoryHandle; instal
   const store = tx.objectStore(STORE);
   const [data, install] = await Promise.all([request(store.get("data")), request(store.get("install"))]);
   return { data, install };
+}
+
+export async function getCacheDirectory(): Promise<DirectoryHandle> {
+  return navigator.storage.getDirectory();
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -77,5 +111,6 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"));
   });
 }

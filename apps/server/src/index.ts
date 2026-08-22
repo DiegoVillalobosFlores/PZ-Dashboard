@@ -1,11 +1,10 @@
 import homepage from "../../../packages/web/index.html";
 import { join } from "node:path";
 import { makeRoutes } from "../../../packages/core/routes";
-import { writeCommand } from "../../../packages/core/state/commands";
 import { getAllCategories, onCategoryUpdate } from "../../../packages/core/state/store";
 import { startWatcher } from "../../../packages/core/state/watcher";
 import { makeNodeFiles, nodeCodecs } from "./files";
-import { FILE_PREFIX, MAP_CACHE_DIR, PORT, PZ_INSTALL_DIR, PZ_LUA_DIR } from "./config";
+import { FILE_PREFIX, MAP_CACHE_DIR, POLL_INTERVAL_MS, PORT, PZ_INSTALL_DIR, PZ_LUA_DIR } from "./config";
 
 const files = makeNodeFiles();
 const commandPath = join(PZ_LUA_DIR, `${FILE_PREFIX}command.json`);
@@ -16,7 +15,7 @@ const api = makeRoutes(files, nodeCodecs, {
   commandPath,
 });
 
-void startWatcher(files, PZ_LUA_DIR);
+void startWatcher(files, PZ_LUA_DIR, { pollIntervalMs: POLL_INTERVAL_MS });
 
 // All WebSocket clients subscribe to this single topic; the frontend
 // filters by `category` client-side rather than us tracking per-client
@@ -74,8 +73,16 @@ const server = Bun.serve({
           ws.send(JSON.stringify({ type: "error", message: "action must be a string", requestId: msg.requestId }));
           return;
         }
-        const commandId = crypto.randomUUID();
-        await writeCommand(files, commandPath, { id: commandId, action: msg.action, params: msg.params ?? {} });
+        const response = await api(new Request("http://localhost/api/action", {
+          method: "POST",
+          body: JSON.stringify({ action: msg.action, params: msg.params ?? {} }),
+          headers: { "Content-Type": "application/json" },
+        }));
+        if (!response.ok) {
+          ws.send(JSON.stringify({ type: "error", message: await response.text(), requestId: msg.requestId }));
+          return;
+        }
+        const { id: commandId } = await response.json() as { id: string };
         // Ack that the command was written; the actual result arrives later
         // as a normal state update on the "commandResult" category once the
         // mod picks it up and reports back.

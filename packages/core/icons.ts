@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import type { Codecs, DecodedPng, GameFiles } from "./index";
+import { joinPath } from "./path";
 
 type IconEntry = { file: string; pngOffset: number; pngLength: number; x: number; y: number; w: number; h: number };
 
@@ -81,52 +81,103 @@ function readPack(file: string, bytes: Uint8Array, into: Map<string, IconEntry>)
   }
 }
 
-let index: Map<string, IconEntry> | null = null;
+const indexes = new WeakMap<GameFiles, Promise<Map<string, IconEntry>>>();
 
 async function getIndex(files: GameFiles, installDir: string): Promise<Map<string, IconEntry>> {
-  if (index) return index;
-  index = new Map();
-  if (!installDir) return index;
+  const cached = indexes.get(files);
+  if (cached) return cached;
+  const promise = (async () => {
+    const index = new Map<string, IconEntry>();
+    if (!installDir) return index;
 
-  const dir = join(installDir, "media", "texturepacks");
-  for (const name of await files.list(dir)) {
-    if (!name.endsWith(".pack")) continue;
-    try {
-      readPack(join(dir, name), await files.read(join(dir, name)), index);
-    } catch (err) {
-      console.warn(`[icons] skipped ${name}: ${err}`);
+    const dir = joinPath(installDir, "media", "texturepacks");
+    for (const name of await files.list(dir)) {
+      if (!name.endsWith(".pack")) continue;
+      try {
+        readPack(joinPath(dir, name), await files.read(joinPath(dir, name)), index);
+      } catch (err) {
+        console.warn(`[icons] skipped ${name}: ${err}`);
+      }
     }
-  }
-  console.log(`[icons] indexed ${index.size} textures from ${dir}`);
-  return index;
+    console.log(`[icons] indexed ${index.size} textures from ${dir}`);
+    return index;
+  })();
+  indexes.set(files, promise);
+  return promise;
 }
 
-const pages = new Map<string, DecodedPng>();
+const pages = new WeakMap<GameFiles, Map<string, DecodedPng>>();
 
-async function getPage(files: GameFiles, codecs: Codecs, entry: IconEntry): Promise<DecodedPng> {
+function cacheKey(value: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function encodePage(page: DecodedPng): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(8 + page.rgba.byteLength);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(0, page.width, true);
+  view.setUint32(4, page.height, true);
+  bytes.set(page.rgba, 8);
+  return bytes;
+}
+
+function decodePage(bytes: Uint8Array): DecodedPng | null {
+  if (bytes.byteLength < 8) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = view.getUint32(0, true);
+  const height = view.getUint32(4, true);
+  if (width <= 0 || height <= 0 || bytes.byteLength !== 8 + width * height * 4) return null;
+  return { width, height, rgba: bytes.slice(8) };
+}
+
+async function getPage(files: GameFiles, codecs: Codecs, entry: IconEntry, cacheDir?: string): Promise<DecodedPng> {
   const key = `${entry.file}:${entry.pngOffset}`;
-  const cached = pages.get(key);
+  const pageCache = pages.get(files) ?? new Map<string, DecodedPng>();
+  pages.set(files, pageCache);
+  const cached = pageCache.get(key);
   if (cached) return cached;
+
+  const cachePath = cacheDir ? joinPath(cacheDir, "icons", "pages", `${cacheKey(key)}.rgba`) : null;
+  if (cachePath) {
+    const page = decodePage(await files.read(cachePath).catch(() => new Uint8Array()));
+    if (page) {
+      pageCache.set(key, page);
+      return page;
+    }
+  }
 
   const bytes = await files.read(entry.file);
   const png = bytes.subarray(entry.pngOffset, entry.pngOffset + entry.pngLength);
 
   const page = await codecs.decodePng(png);
-  if (pages.size >= MAX_CACHED_PAGES) pages.delete(pages.keys().next().value!);
-  pages.set(key, page);
+  if (pageCache.size >= MAX_CACHED_PAGES) pageCache.delete(pageCache.keys().next().value!);
+  pageCache.set(key, page);
+  if (cachePath) await files.write(cachePath, encodePage(page)).catch(() => undefined);
   return page;
 }
 
-const rendered = new Map<string, Uint8Array<ArrayBuffer>>();
+const rendered = new WeakMap<GameFiles, Map<string, Uint8Array<ArrayBuffer>>>();
 
-export async function renderIcon(files: GameFiles, codecs: Codecs, installDir: string, name: string): Promise<Uint8Array<ArrayBuffer> | null> {
-  const cached = rendered.get(name);
+export async function renderIcon(files: GameFiles, codecs: Codecs, installDir: string, name: string, cacheDir?: string): Promise<Uint8Array<ArrayBuffer> | null> {
+  const cachePath = cacheDir ? joinPath(cacheDir, "icons", "rendered", `${name}.png`) : null;
+  const cachedFile = cachePath ? await files.read(cachePath).catch(() => null) : null;
+  if (cachedFile) return cachedFile;
+
+  const renderedKey = `${installDir}\0${cacheDir ?? ""}\0${name}`;
+  const renderCache = rendered.get(files) ?? new Map<string, Uint8Array<ArrayBuffer>>();
+  rendered.set(files, renderCache);
+  const cached = renderCache.get(renderedKey);
   if (cached) return cached;
 
   const entry = (await getIndex(files, installDir)).get(name);
   if (!entry) return null;
 
-  const page = await getPage(files, codecs, entry);
+  const page = await getPage(files, codecs, entry, cacheDir);
   const width = Math.min(entry.w, page.width - entry.x);
   const height = Math.min(entry.h, page.height - entry.y);
   if (width <= 0 || height <= 0) return null;
@@ -138,6 +189,7 @@ export async function renderIcon(files: GameFiles, codecs: Codecs, installDir: s
   }
 
   const png = await codecs.encodePng({ width, height, rgba });
-  rendered.set(name, png);
+  renderCache.set(renderedKey, png);
+  if (cachePath) await files.write(cachePath, png).catch(() => undefined);
   return png;
 }

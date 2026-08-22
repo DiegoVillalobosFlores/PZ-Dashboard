@@ -1,0 +1,5 @@
+{
+  "extends": "../server/tsconfig.json",
+  "compilerOptions": { "types": ["bun"] },
+  "include": ["*.ts", "*.tsx", "../../packages/**/*.ts", "../../packages/**/*.tsx"]
+}

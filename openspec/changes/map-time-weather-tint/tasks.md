@@ -6,16 +6,16 @@
 
 ## 2. Tint function
 
-- [ ] 2.1 Add the four fields as optional numbers on `StatusSnapshot` in `server/src/web/lib/liveTypes.ts`.
-- [ ] 2.2 Add `server/src/web/lib/mapTint.ts` exporting a pure function from a status snapshot to a CSS colour string: clamp each input, combine darkness, weather and fog contributions, shift the weather contribution paler when `snow > 0`, and cap total alpha at a named legibility constant.
+- [ ] 2.1 Add the four fields as optional numbers on `StatusSnapshot` in `packages/web/lib/liveTypes.ts`.
+- [ ] 2.2 Add `packages/web/lib/mapTint.ts` exporting a pure function from a status snapshot to a CSS colour string: clamp each input, combine darkness, weather and fog contributions, shift the weather contribution paler when `snow > 0`, and cap total alpha at a named legibility constant.
 - [ ] 2.3 Return fully transparent when the snapshot is missing, when all four fields are absent, or when the values describe clear daylight.
-- [ ] 2.4 Add `server/src/web/lib/mapTint.test.ts` covering: clear noon is transparent; full night is at the cap and no darker; rain at noon greys without exceeding the cap; snow reads paler than the same precipitation without snow; a snapshot with no climate fields is transparent; one missing field does not discard the others; out-of-range and non-finite inputs are clamped.
+- [ ] 2.4 Add `packages/web/lib/mapTint.test.ts` covering: clear noon is transparent; full night is at the cap and no darker; rain at noon greys without exceeding the cap; snow reads paler than the same precipitation without snow; a snapshot with no climate fields is transparent; one missing field does not discard the others; out-of-range and non-finite inputs are clamped.
 
 ## 3. Render
 
-- [ ] 3.1 Add `useMapTint` to `server/src/web/lib/settings.ts`, defaulting to `true`, alongside `useFogOfWar`.
-- [ ] 3.2 Add its row to `SettingsScreen` next to fog of war.
-- [ ] 3.3 In `MapCanvas`, subscribe to the status category for the climate values and render an absolutely positioned overlay `div` immediately after `</svg>` and before the recenter button, with `inset: 0`, `pointerEvents: 'none'`, the computed background, and a background transition of about one second.
+- [ ] 3.1 Add `useMapTint` to `packages/web/lib/settings.ts`, defaulting to `true`, alongside `useFogOfWar`.
+- [ ] 3.2 Add its row to `packages/web/screens/SettingsScreen.tsx` next to fog of war.
+- [ ] 3.3 In `packages/web/components/MapCanvas.tsx`, subscribe to the status category for the climate values and render an absolutely positioned overlay `div` immediately after `</svg>` and before the recenter button, with `inset: 0`, `pointerEvents: 'none'`, the computed background, and a background transition of about one second.
 - [ ] 3.4 Render no overlay at all when the setting is off.
 
 ## 4. Verify

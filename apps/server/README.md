@@ -1,8 +1,9 @@
-# PZ Dashboard server
+# PZ Dashboard Server
 
-Bun server that watches the folder the PZDashboard mod (`../mod`) writes
-JSON snapshots into, and re-serves the latest state over HTTP. No frontend
-yet — this is the plumbing between the mod and the future React dashboard.
+Bun server that watches the folder the PZDashboard mod (`../../mod`) writes
+JSON snapshots into, and serves the shared React dashboard over HTTP and
+WebSocket. Use this mode when the dashboard must be reachable from another
+device.
 
 ## Run
 
@@ -36,8 +37,7 @@ which only exist for released Bun versions — on a canary the foreign targets
 are skipped with a warning.
 
 Map tiles are extracted from the game's `spawnSelectImagePyramid.zip` with
-`unzip`, falling back to `tar -xf` (which handles zips on Windows 10+ and
-macOS) when `unzip` isn't installed.
+the shared ZIP parser, so no external `unzip` or `tar` executable is needed.
 
 ## Item icons
 

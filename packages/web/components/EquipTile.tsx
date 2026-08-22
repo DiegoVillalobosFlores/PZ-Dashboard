@@ -1,6 +1,7 @@
 import { CornerBrackets } from './CornerBrackets';
 import { ItemIcon } from './ItemIcon';
 import { conditionColor, type EquipSlotState } from '../lib/equipment';
+import { useGameActionsEnabled } from '../lib/gameSocket';
 
 // The one tile every equipped item is drawn as. The hotbar tray, the
 // primary/secondary hand widget and the worn-clothing paperdoll used to each
@@ -101,10 +102,12 @@ export function EquipTile({
 }) {
   const spec = SPECS[variant][wide ? 'wide' : 'compact'];
   const emptyLabel = `Empty ${slot.label}`;
+  const actionsEnabled = useGameActionsEnabled();
 
   return (
     <button
       onClick={onClick}
+      disabled={!actionsEnabled}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -115,9 +118,10 @@ export function EquipTile({
         background: 'transparent',
         border: 'none',
         padding: 0,
-        cursor: 'pointer',
+        cursor: actionsEnabled ? 'pointer' : 'default',
+        opacity: actionsEnabled ? 1 : 0.55,
       }}
-      title={slot.itemName ?? emptyLabel}
+      title={actionsEnabled ? slot.itemName ?? emptyLabel : 'Write access is required for game actions'}
     >
       <div
         style={{

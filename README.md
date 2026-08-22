@@ -1,9 +1,9 @@
 # PZ Dashboard
 
 A second-screen companion for Project Zomboid. A client-side Lua mod streams
-live game state out of the running game; a local Bun server picks it up and
-serves a browser dashboard you can keep open on a phone, tablet or handheld
-next to the game.
+live game state out of the running game; choose either a local Bun server for
+second-device access or a direct browser app for a dashboard on the game
+machine.
 
 The PZ Lua sandbox has no network access, so the mod writes JSON snapshots
 into `<Zomboid>/Lua/PZDashboard_<category>.json` and the server watches that
@@ -12,7 +12,9 @@ act on the game, not just display it.
 
 ```
 Project Zomboid  ──(JSON files in <Zomboid>/Lua/)──>  Bun server  ──(HTTP + WebSocket)──>  browser
-                 <──(PZDashboard_command.json)─────
+                  <──(PZDashboard_command.json)─────
+
+Browser Direct ──(File System Access API, local machine only)──> dashboard
 ```
 
 ![Map screen](docs/screenshots/home.webp)
@@ -110,8 +112,12 @@ second screen the size of an Ayaneo.
 
 - `mod/` — the Project Zomboid Build 42 mod. See [`mod/README.md`](mod/README.md)
   for the exact category schemas, command protocol and install steps.
-- `server/` — one Bun process serving both the API/WebSocket and the React
-  frontend. See [`server/README.md`](server/README.md).
+- `packages/core/` — portable state, map, model, icon and route logic.
+- `packages/web/` — shared React dashboard.
+- `apps/server/` — Bun HTTP/WebSocket server for LAN and second-device use.
+  See [`apps/server/README.md`](apps/server/README.md).
+- `apps/browser/` — static File System Access build for the machine running
+  Project Zomboid. See [`apps/browser/README.md`](apps/browser/README.md).
 - `docs/plans/` — design notes for work that isn't built yet:
   [animating the character model](docs/plans/CHARACTER_ANIMATION_PLAN.md) and
   [a 3D map](docs/plans/MAP_3D_PLAN.md).
@@ -120,6 +126,8 @@ second screen the size of an Ayaneo.
 
 1. Copy `mod/PZDashboard` into your Zomboid `mods/` folder and enable
    "PZ Dashboard" in-game (or run `bun scripts/deploy-mod.ts` from this
-   directory, which reads `PZ_LUA_DIR` from `server/.env.local`).
-2. `cd server && bun install && bun --hot src/index.ts`
-3. Open `http://localhost:3000` on the second screen.
+   directory, which reads `PZ_LUA_DIR` from `apps/server/.env.local`).
+2. Run server mode: `cd apps/server && bun install && bun run dev`.
+3. Open `http://localhost:3000` on a phone, tablet or handheld.
+4. Or build browser mode: `cd apps/browser && bun run build`, host `dist/` on
+   a secure origin, and open it on the machine running the game.

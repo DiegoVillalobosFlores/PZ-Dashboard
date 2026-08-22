@@ -1,5 +1,5 @@
 import type { GameFiles } from "../index";
-import { join } from "node:path";
+import { joinPath } from "../path";
 
 // Renders the SAME data source the game's own "M" map screen uses
 // (worldmap.xml cell features + streets.xml road labels), styled with the
@@ -169,9 +169,9 @@ export async function getVectorMap(files: GameFiles, region: string, installDir:
   if (!installDir) {
     throw new Error("PZ_INSTALL_DIR is not set - see .env.example");
   }
-  const dir = join(installDir, "media", "maps", region);
-  const worldMapPath = join(dir, "worldmap.xml");
-  const streetsPath = join(dir, "streets.xml");
+  const dir = joinPath(installDir, "media", "maps", region);
+  const worldMapPath = joinPath(dir, "worldmap.xml");
+  const streetsPath = joinPath(dir, "streets.xml");
   if (!(await files.stat(worldMapPath))) {
     throw new Error(`No worldmap.xml for region "${region}"`);
   }

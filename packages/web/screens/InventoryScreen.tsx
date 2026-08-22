@@ -7,7 +7,7 @@ import { GlassPanel } from '../components/GlassPanel';
 import { Icon } from '../components/Icon';
 import { ItemIcon } from '../components/ItemIcon';
 import { ScreenModal } from '../components/ScreenModal';
-import { sendAction, useGameConnection, useGameSubscription } from '../lib/gameSocket';
+import { sendAction, useGameActionsEnabled, useGameConnection, useGameSubscription } from '../lib/gameSocket';
 import {
   ALL_TYPE,
   allContainer,
@@ -50,6 +50,7 @@ function moveBlocker(destination: ContainerSnapshot | null, selection: Selection
 export function InventoryScreen() {
   const isWide = useMediaQuery('(min-width: 900px)');
   const connected = useGameConnection();
+  const actionsEnabled = useGameActionsEnabled();
 
   const snapshot = useGameSubscription('containers', (msg) =>
     msg.category === 'containers' ? msg.data : undefined,
@@ -143,7 +144,7 @@ export function InventoryScreen() {
   const rightSelection = selection !== null && selection.containerId === right?.id ? selection.ids : [];
 
   function moveTo(target: ContainerSnapshot | null) {
-    if (!selection || !target) return;
+    if (!actionsEnabled || !selection || !target) return;
     if (moveBlocker(target, selection, weight)) return;
     sendAction('moveItems', { to: target.id, itemIds: selection.ids });
     setPending(selection.ids.length);
@@ -152,7 +153,7 @@ export function InventoryScreen() {
 
   function dropItems(targetId: string, source: Selection) {
     const target = paneContainerById(targetId);
-    if (!target) return;
+    if (!actionsEnabled || !target) return;
     const dropped = selectionWeight(paneContainerById(source.containerId), source.ids);
     const dropBlocker = moveBlocker(target, source, dropped);
     if (dropBlocker) {
@@ -193,7 +194,7 @@ export function InventoryScreen() {
     return (
       <Menu.Item
         key={container.id}
-        disabled={itemBlocker !== null}
+        disabled={!actionsEnabled || itemBlocker !== null}
         onClick={() => moveTo(container)}
         leftSection={
           container.icon ? (
@@ -438,7 +439,7 @@ export function InventoryScreen() {
                   {useMenu ? (
                     <Menu position="top-end" withinPortal shadow="md" width={isWide ? 520 : 320}>
                       <Menu.Target>
-                        <button className="pz-label" style={moveButtonStyle(false)}>
+                         <button className="pz-label" disabled={!actionsEnabled} style={moveButtonStyle(!actionsEnabled)}>
                           Move to…
                         </button>
                       </Menu.Target>
@@ -467,9 +468,9 @@ export function InventoryScreen() {
                   ) : (
                     <button
                       onClick={() => moveTo(destination)}
-                      disabled={blocker !== null}
-                      className="pz-label"
-                      style={moveButtonStyle(blocker !== null)}
+                       disabled={!actionsEnabled || blocker !== null}
+                       className="pz-label"
+                       style={moveButtonStyle(!actionsEnabled || blocker !== null)}
                     >
                       {blocker ?? `Move → ${destination?.name ?? ''}`}
                     </button>

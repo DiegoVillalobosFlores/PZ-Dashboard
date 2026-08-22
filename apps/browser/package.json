@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "build": "bun build ./index.html --outdir dist --minify" },
-  "dependencies": { "@pz-dashboard/core": "workspace:*", "@pz-dashboard/web": "workspace:*", "react": "^19.2.8", "react-dom": "^19.2.8" }
+  "scripts": { "build": "bun build.ts" },
+  "dependencies": { "@pz-dashboard/core": "workspace:*", "@pz-dashboard/web": "workspace:*", "react": "^19.2.8", "react-dom": "^19.2.8" },
+  "devDependencies": { "@types/bun": "latest", "@types/react": "^19.2.18", "@types/react-dom": "^19.2.4", "@types/three": "^0.185.4", "typescript": "^5" }
 }

@@ -1,19 +1,5 @@
 ## Context
 
-## Decisions
-
-The Service Worker/File System Access spike is blocked in this checkout: no
-real `.pack` asset or granted game directory is available, so the worker could
-not serve a cropped icon request. The browser implementation uses the planned
-in-page fallback shape, with asynchronous asset URL access.
-
-The throwaway `bun build --compile` fixture resolved an HTML import across a
-workspace boundary successfully. `index.html` can live in `packages/web`.
-
-This change lands before `map-coordinate-readout`, `map-time-weather-tint`, and
-`container-loot-memory`; their task lists must use `packages/core` and
-`packages/web` paths after the move.
-
 See `proposal.md` — Why. What shapes the approach is that the existing
 `server/src/` is already almost entirely portable, and its coupling to the
 frontend is already almost entirely centralised. Both facts were measured
@@ -51,14 +37,18 @@ Everything else — every screen, every transform, `equipment.ts`,
 
 Three OpenSpec changes are in flight (`map-coordinate-readout`,
 `map-time-weather-tint`, `container-loot-memory`) at 0 completed tasks each.
-Nothing is half-written, but their task lists name `server/src/…` paths.
+Nothing is half-written, but their task lists name `server/src/…` paths. This
+change lands first, so those task lists must be re-pathed to `packages/core`
+and `packages/web`.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - One copy of every non-trivial algorithm, consumed by both apps.
-- The browser app requires zero changes to any component in `packages/web`.
+- The browser app changes as little of `packages/web` as the chosen shape
+  allows: the transport seam, plus the asynchronous asset URL seam the in-page
+  fallback requires. No screen, transform or layout module changes.
 - The restructure lands independently of whether the browser app's Service
   Worker approach works, so it is never blocked on an unproven capability.
 - The server app's observable behaviour after the restructure is
@@ -84,7 +74,7 @@ packages/
   web/      the React app, moved verbatim from server/src/web/ + index.html
 apps/
   server/   Bun.serve + node GameFiles + node codecs + compile targets
-  browser/  static build + Service Worker + FSA GameFiles + browser codecs
+  browser/  static build + in-page route table + FSA GameFiles + browser codecs
 mod/        unchanged
 ```
 
@@ -194,14 +184,22 @@ existing `state/watcher.ts` polls because `fs.watch` silently drops events
 under the mod's write load; FSA has no change notification at all, so polling
 is the only option there regardless.
 
-### Service Worker, with a documented fallback
+### In-page route table, after the Service Worker spike could not run
 
-The worker is the preferred host for the route table, but it rests on an
-unverified capability (see Risks). If the spike fails, `apps/browser` falls
-back to resolving assets in-page as `blob:` URLs behind a small
-`useAssetUrl()` hook, and `packages/web` gains that one extra seam. The
-package boundary and the port do not change either way, which is why the
-restructure is sequenced first.
+The worker was the preferred host, but the spike is blocked in this checkout:
+no real `.pack` asset and no granted game directory are available, so the
+worker could never be made to serve a cropped icon request, and the capability
+stays unverified rather than disproven.
+
+`apps/browser` therefore ships the documented fallback: `browserRoutes()`
+mounts `makeRoutes` in-page and assets resolve as `blob:` URLs behind
+`packages/web/lib/assetUrl.ts`, consumed by `ItemIcon.tsx` and
+`TraitsList.tsx`. `MapCanvas.tsx` and `CharacterModel.tsx` need no seam of
+their own; they retry their asset requests when the browser grant changes.
+
+The package boundary and the port are identical either way, which is why the
+restructure was sequenced first and why moving to a worker later is a change
+confined to `apps/browser`.
 
 ### Tooling: Bun workspaces, nothing else
 
@@ -215,21 +213,19 @@ install`. TypeScript path resolution goes through workspace deps rather than
 - **A Service Worker may not be able to use a `FileSystemDirectoryHandle`
   retrieved from IndexedDB under a grant the page issued.** Handles are
   structured-cloneable and workers can read IndexedDB, but permission prompts
-  require a window and Chrome has had bugs in this area. → Spike it first, as
-  the first task: register a worker, stash a handle from the page, grant read,
-  serve exactly one `/game-icons/*` request from a `.pack`. Under a day, and
-  it decides the browser app's shape without touching the restructure.
+  require a window and Chrome has had bugs in this area. → Settled by falling
+  back: the spike could not be run here, so the in-page shape ships and the
+  question is deferred to a later, `apps/browser`-only change.
 
 - **`bun build --compile` may not resolve the HTML import across a workspace
   boundary.** `apps/server` imports `packages/web/index.html`, which today is
-  a sibling file. → Verify with a throwaway compile before the move is
-  finalised; if it fails, `index.html` stays in `apps/server` and imports the
-  web package's entry module instead.
+  a sibling file. → Settled: a throwaway two-package fixture resolved the HTML
+  import, so `index.html` lives in `packages/web`.
 
 - **The restructure invalidates paths in three in-flight changes.** All three
   are at 0 completed tasks, so no code conflicts — but their task lists name
-  `server/src/…`. → Land this change first and re-path those task lists, or
-  land them first and rebase this one. Deciding order is cheaper than merging.
+  `server/src/…`. → Settled: this change lands first and those three task
+  lists get re-pathed to `packages/core` / `packages/web`.
 
 - **Two directory grants, no common ancestor.** The user sees two pickers on
   first run (`~/Zomboid` read-write, the install dir read-only). → Ask for

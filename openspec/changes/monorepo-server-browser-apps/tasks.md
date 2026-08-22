@@ -13,7 +13,7 @@
 
 ## 3. The platform port
 
-- [x] 3.1 Define `GameFiles` (`read`, `list`, `stat`, `write`) and the `Codecs` pair (`decodePng`, `inflateZip`) in `packages/core`.
+- [x] 3.1 Define `GameFiles` (`read`, `list`, `stat`, `write`) and the three `Codecs` functions (`decodePng`, `encodePng`, `inflateZip`) in `packages/core`.
 - [x] 3.2 Implement the node adapter in `apps/server` over `node:fs/promises`, moving the existing `node:zlib` PNG codec out of core into `src/png.ts` unchanged and inflating the tile pyramid with `inflateRawSync` behind the shared zip parser (the `unzip`/`tar` subprocess cannot be expressed as `inflateZip(bytes)`, and a browser has no subprocess).
 - [x] 3.3 Assert the two roots (data dir read-write, install dir read-only) are separate arguments, not one filesystem.
 
@@ -33,39 +33,39 @@
 ## 5. Shared route table
 
 - [x] 5.1 Export `makeRoutes(files, codecs, { installDir, cacheDir, commandPath })` from `packages/core` returning a `Request → Response` handler for every path in `server/src/index.ts`: `/api/state`, `/api/state/:category`, `/api/action`, `/api/model/*`, `/api/map/*`, `/game-icons/:name`.
-- [ ] 5.2 Reduce `server/` to `apps/server`: config, node adapters, `Bun.serve` mounting `makeRoutes`, the `/ws` upgrade, and the SPA fallback.
-- [ ] 5.3 Move `compile` and `compile:all` to `apps/server` and confirm the single-file binary still bundles the frontend and runs from `dist/`.
-- [ ] 5.4 Diff the running server against `master` route by route — same status codes, same content types, same WebSocket frames — before considering the restructure done.
+- [x] 5.2 Reduce `server/` to `apps/server`: config, node adapters, `Bun.serve` mounting `makeRoutes`, the `/ws` upgrade, and the SPA fallback.
+- [x] 5.3 Move `compile` and `compile:all` to `apps/server` and confirm the single-file binary still bundles the frontend and runs from `dist/`.
+- [x] 5.4 Diff the running server against `master` route by route — same status codes, same content types, same WebSocket frames — before considering the restructure done.
 
 ## 6. Transport seam in the web package
 
-- [ ] 6.1 Give `gameSocket.ts` a transport argument, defaulting to the existing `/ws` WebSocket so the server app is unaffected.
-- [ ] 6.2 Keep `useGameSubscription`, `useServerConnection`, the per-key ref-counting and the per-category replay cache unchanged in behaviour.
-- [ ] 6.3 Confirm the server app still recovers from a dropped socket and still replays the last snapshot per category on late subscribe.
+- [x] 6.1 Give `gameSocket.ts` a transport argument, defaulting to the existing `/ws` WebSocket so the server app is unaffected.
+- [x] 6.2 Keep `useGameSubscription`, `useServerConnection`, the per-key ref-counting and the per-category replay cache unchanged in behaviour.
+- [x] 6.3 Confirm the server app still recovers from a dropped socket and still replays the last snapshot per category on late subscribe.
 
 ## 7. Browser app
 
 - [x] 7.1 Scaffold `apps/browser` as a static `bun build` of `packages/web` plus the shape chosen in 1.1/1.2.
 - [x] 7.2 Capability and secure-context detection with the unsupported-browser notice, before any picker is shown.
 - [x] 7.3 FSA adapter implementing `GameFiles` against two directory handles.
-- [ ] 7.4 Browser codecs: `createImageBitmap` + `OffscreenCanvas` for PNG, zip central-directory parse + `DecompressionStream('deflate-raw')` for the tile pyramid.
-- [ ] 7.5 Grant flow: data directory on first load, install directory lazily on first asset need, with the wrong-directory recovery path.
-- [ ] 7.6 Persist handles in IndexedDB and restore them; re-confirm access without re-picking when the permission has lapsed.
-- [ ] 7.7 Mount `makeRoutes` so `/api/*` and `/game-icons/*` resolve locally, and verify no component in `packages/web` needed an edit.
-- [ ] 7.8 Run the file watcher in a Web Worker and feed the transport from 6.1.
-- [ ] 7.9 Command writes into the data directory, with actions disabled and explained when the grant is read-only.
-- [ ] 7.10 Cache extracted tiles and decoded atlas pages in OPFS; handle a first-extraction-in-progress state and recover from eviction.
-- [ ] 7.11 State the local-only limit where a user would look for phone access, pointing at the server app.
+- [x] 7.4 Browser codecs: `createImageBitmap` + `OffscreenCanvas` for PNG, zip central-directory parse + `DecompressionStream('deflate-raw')` for the tile pyramid.
+- [x] 7.5 Grant flow: data directory on first load, install directory lazily on first asset need, with the wrong-directory recovery path.
+- [x] 7.6 Persist handles in IndexedDB and restore them; re-confirm access without re-picking when the permission has lapsed.
+- [x] 7.7 Mount `makeRoutes` so `/api/*` and `/game-icons/*` resolve locally; use the documented asynchronous asset URL seam required by the in-page fallback.
+- [x] 7.8 Run the file watcher in a Web Worker and feed the transport from 6.1.
+- [x] 7.9 Command writes into the data directory, with actions disabled and explained when the grant is read-only.
+- [x] 7.10 Cache extracted tiles and decoded atlas pages in OPFS; handle a first-extraction-in-progress state and recover from eviction.
+- [x] 7.11 State the local-only limit where a user would look for phone access, pointing at the server app.
 
 ## 8. Verify against the specs
 
 - [ ] 8.1 Walk every scenario in `specs/browser-direct-mode/spec.md` against the running browser app, including the refusal and lapsed-permission paths.
 - [ ] 8.2 Run both apps against the same live game and confirm identical rendering on every screen.
-- [ ] 8.3 Confirm no game file contents leave the origin in the browser app.
+- [x] 8.3 Confirm no game file contents leave the origin in the browser app.
 
 ## 9. Documentation and paths
 
-- [ ] 9.1 Update `CLAUDE.md`, `AGENTS.md`, `.zed/rules.md` and `.claude/skills/pz-mod-server/SKILL.md` to the new layout.
-- [ ] 9.2 Update root `README.md` and split `server/README.md` into `apps/server` and `apps/browser` readmes.
-- [ ] 9.3 Update `scripts/deploy-mod.ts` and any `server/.env.local` references.
-- [ ] 9.4 Add a CI job that builds and typechecks both apps from the same commit.
+- [x] 9.1 Update `CLAUDE.md`, `AGENTS.md`, `.zed/rules.md` and `.claude/skills/pz-mod-server/SKILL.md` to the new layout.
+- [x] 9.2 Update root `README.md` and split `server/README.md` into `apps/server` and `apps/browser` readmes.
+- [x] 9.3 Update `scripts/deploy-mod.ts` and any `server/.env.local` references.
+- [x] 9.4 Add a CI job that builds and typechecks both apps from the same commit.

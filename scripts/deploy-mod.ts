@@ -2,7 +2,7 @@ import { cp, mkdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 const rootDir = resolve(import.meta.dir, '..');
-const envPath = join(rootDir, 'server', '.env.local');
+const envPath = join(rootDir, 'apps', 'server', '.env.local');
 const sourceDir = join(rootDir, 'mod', 'PZDashboard');
 
 function envValue(text: string, name: string): string | undefined {

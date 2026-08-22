@@ -1,5 +1,5 @@
-import { join, normalize } from "node:path";
 import type { GameFiles } from "../index";
+import { joinPath, normalizePath } from "../path";
 
 // The game's XML records model and texture paths lowercased with Windows
 // separators ("x:skinned\clothes\bob_trousers") while the files on disk are
@@ -29,7 +29,7 @@ async function resolveCaseInsensitive(files: GameFiles, root: string, relative: 
     const entries = await listing(files, current);
     const real = entries.get(segment.toLowerCase());
     if (!real) return null;
-    current = join(current, real);
+    current = joinPath(current, real);
   }
   return current;
 }
@@ -37,7 +37,7 @@ async function resolveCaseInsensitive(files: GameFiles, root: string, relative: 
 function sanitize(path: string): string | null {
   const cleaned = path.replace(/\\/g, "/").replace(/^[a-z]:/i, "").replace(/^\/+/, "");
   if (!cleaned) return null;
-  const normalized = normalize(cleaned);
+  const normalized = normalizePath(cleaned);
   if (normalized.startsWith("..") || normalized.includes("../")) return null;
   return normalized;
 }
@@ -53,18 +53,18 @@ export async function resolveModelPath(files: GameFiles, path: string, installDi
   if (withExt.toLowerCase().startsWith("media/")) {
     return resolveCaseInsensitive(files, installDir, withExt);
   }
-  return resolveCaseInsensitive(files, join(installDir, "media", "models_X"), withExt);
+  return resolveCaseInsensitive(files, joinPath(installDir, "media", "models_X"), withExt);
 }
 
 export async function resolveTexturePath(files: GameFiles, path: string, installDir: string): Promise<string | null> {
   const cleaned = sanitize(path);
   if (!cleaned || !installDir) return null;
   const withExt = /\.png$/i.test(cleaned) ? cleaned : `${cleaned}.png`;
-  return resolveCaseInsensitive(files, join(installDir, "media", "textures"), withExt);
+  return resolveCaseInsensitive(files, joinPath(installDir, "media", "textures"), withExt);
 }
 
 export async function resolveMediaPath(files: GameFiles, relative: string, installDir: string): Promise<string | null> {
   const cleaned = sanitize(relative);
   if (!cleaned || !installDir) return null;
-  return resolveCaseInsensitive(files, join(installDir, "media"), cleaned);
+  return resolveCaseInsensitive(files, joinPath(installDir, "media"), cleaned);
 }

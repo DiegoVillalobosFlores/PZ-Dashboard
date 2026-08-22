@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { apiBase } from '../lib/api';
 import { Icon } from './Icon';
 import { iconForItem } from '../lib/itemIcon';
+import { useAssetUrl } from '../lib/assetUrl';
 
 // Real in-game sprite when the mod reports one (item:getTex():getName(),
 // cropped on demand out of the game's own texture atlases by
@@ -21,17 +20,16 @@ export function ItemIcon({
   size?: number;
   color?: string;
 }) {
-  const [failed, setFailed] = useState(false);
+  const assetUrl = useAssetUrl(icon ? `/game-icons/${icon}.png` : undefined);
 
-  if (icon && !failed) {
+  if (assetUrl) {
     return (
       <img
-        src={`${apiBase()}/game-icons/${icon}.png`}
+        src={assetUrl}
         alt={name}
         width={size}
         height={size}
         style={{ imageRendering: 'pixelated', objectFit: 'contain' }}
-        onError={() => setFailed(true)}
       />
     );
   }
