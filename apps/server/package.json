@@ -1,0 +1,27 @@
+{
+  "name": "@pz-dashboard/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build ../../packages/web/index.html --outdir dist --minify",
+    "compile": "bun scripts/compile.ts",
+    "compile:all": "bun scripts/compile.ts --all"
+  },
+  "dependencies": {
+    "@pz-dashboard/core": "workspace:*",
+    "@pz-dashboard/web": "workspace:*",
+    "@mantine/core": "^9.5.1",
+    "@mantine/hooks": "^9.5.1",
+    "@types/three": "^0.185.4",
+    "lucide-react": "^1.28.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2",
+    "swr": "^2.5.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": { "@types/bun": "latest", "typescript": "^5", "@types/react": "^19.2.18", "@types/react-dom": "^19.2.4" }
+}

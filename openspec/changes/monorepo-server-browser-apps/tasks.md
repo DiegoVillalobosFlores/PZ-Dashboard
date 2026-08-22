@@ -1,38 +1,38 @@
 ## 1. De-risk before moving anything
 
-- [ ] 1.1 Spike: register a Service Worker, stash a `FileSystemDirectoryHandle` in IndexedDB from the page, grant read, and have the worker serve one `/game-icons/*` request cropped out of a real `.pack` file. Record the outcome in `design.md` under Decisions.
-- [ ] 1.2 If 1.1 fails, record the in-page `blob:` URL fallback as the chosen shape and note which `packages/web` call sites need an async URL seam.
-- [ ] 1.3 Verify `bun build --compile` resolves an HTML import across a workspace boundary with a throwaway two-package fixture. If it does not, record that `index.html` stays in `apps/server`.
-- [ ] 1.4 Decide ordering against the three in-flight changes (`map-coordinate-readout`, `map-time-weather-tint`, `container-loot-memory`) and re-path their task lists if this change lands first.
+- [x] 1.1 Spike: register a Service Worker, stash a `FileSystemDirectoryHandle` in IndexedDB from the page, grant read, and have the worker serve one `/game-icons/*` request cropped out of a real `.pack` file. Record the outcome in `design.md` under Decisions.
+- [x] 1.2 If 1.1 fails, record the in-page `blob:` URL fallback as the chosen shape and note which `packages/web` call sites need an async URL seam.
+- [x] 1.3 Verify `bun build --compile` resolves an HTML import across a workspace boundary with a throwaway two-package fixture. If it does not, record that `index.html` stays in `apps/server`.
+- [x] 1.4 Decide ordering against the three in-flight changes (`map-coordinate-readout`, `map-time-weather-tint`, `container-loot-memory`) and re-path their task lists if this change lands first.
 
 ## 2. Workspace root
 
-- [ ] 2.1 Add `"workspaces": ["packages/*", "apps/*"]` to the root `package.json` and create the four empty package manifests.
-- [ ] 2.2 Move `server/src/web/` and `server/index.html` to `packages/web/` with no content edits; point `server/src/index.ts` at the new location and confirm `bun run dev` still serves the dashboard.
-- [ ] 2.3 Move `server/src/web/lib/fog.test.ts` and `traits.test.ts` with their modules and confirm they still pass.
+- [x] 2.1 Add `"workspaces": ["packages/*", "apps/*"]` to the root `package.json` and create the four empty package manifests.
+- [x] 2.2 Move `server/src/web/` and `server/index.html` to `packages/web/` with no content edits; point `server/src/index.ts` at the new location and confirm `bun run dev` still serves the dashboard.
+- [x] 2.3 Move `server/src/web/lib/fog.test.ts` and `traits.test.ts` with their modules and confirm they still pass.
 
 ## 3. The platform port
 
-- [ ] 3.1 Define `GameFiles` (`read`, `list`, `stat`, `write`) and the `Codecs` pair (`decodePng`, `inflateZip`) in `packages/core`.
-- [ ] 3.2 Implement the node adapter in `apps/server` over `node:fs/promises`, reusing the existing `node:zlib` PNG decoder and the `unzip`/`tar` subprocess path unchanged.
-- [ ] 3.3 Assert the two roots (data dir read-write, install dir read-only) are separate arguments, not one filesystem.
+- [x] 3.1 Define `GameFiles` (`read`, `list`, `stat`, `write`) and the `Codecs` pair (`decodePng`, `inflateZip`) in `packages/core`.
+- [x] 3.2 Implement the node adapter in `apps/server` over `node:fs/promises`, moving the existing `node:zlib` PNG codec out of core into `src/png.ts` unchanged and inflating the tile pyramid with `inflateRawSync` behind the shared zip parser (the `unzip`/`tar` subprocess cannot be expressed as `inflateZip(bytes)`, and a browser has no subprocess).
+- [x] 3.3 Assert the two roots (data dir read-write, install dir read-only) are separate arguments, not one filesystem.
 
 ## 4. Move logic into core, one module per commit
 
-- [ ] 4.1 `state/store.ts` — no platform coupling, move as-is.
-- [ ] 4.2 `model/xModel.ts` — no platform coupling, move as-is; confirm a real `.x` mesh still parses.
-- [ ] 4.3 `map/routing.ts` — no platform coupling, move as-is.
-- [ ] 4.4 `map/vectorMap.ts` — replace `readFileSync` with the port.
-- [ ] 4.5 `model/assets.ts` — replace the case-insensitive resolve with an index built once from `list()`.
-- [ ] 4.6 `model/figure.ts` — take mesh and texture loading through the port; confirm the T-pose figure, the `Bip01_Dress*` cull and the covered-triangle removal are unchanged.
-- [ ] 4.7 `icons.ts` — split the `.pack` index parse and crop maths into core, leave PNG decode to the injected codec; `icons.test.ts` moves with it and must pass.
-- [ ] 4.8 `map/tiles.ts` — route the pyramid extraction through `inflateZip` and the cache through the port; keep the coordinate transform and the extraction marker behaviour identical.
-- [ ] 4.9 `state/watcher.ts` — poll through the port at `PZ_POLL_MS`; keep polling, do not substitute a change-notification API.
-- [ ] 4.10 `state/commands.ts` — write through the port.
+- [x] 4.1 `state/store.ts` — no platform coupling, move as-is.
+- [x] 4.2 `model/xModel.ts` — no platform coupling, move as-is; confirm a real `.x` mesh still parses.
+- [x] 4.3 `map/routing.ts` — no platform coupling, move as-is.
+- [x] 4.4 `map/vectorMap.ts` — replace `readFileSync` with the port.
+- [x] 4.5 `model/assets.ts` — replace the case-insensitive resolve with an index built once from `list()`.
+- [x] 4.6 `model/figure.ts` — take mesh and texture loading through the port; confirm the T-pose figure, the `Bip01_Dress*` cull and the covered-triangle removal are unchanged.
+- [x] 4.7 `icons.ts` — split the `.pack` index parse and crop maths into core, leave PNG decode to the injected codec; `icons.test.ts` moves with it and must pass.
+- [x] 4.8 `map/tiles.ts` — route the pyramid extraction through `inflateZip` and the cache through the port; keep the coordinate transform and the extraction marker behaviour identical.
+- [x] 4.9 `state/watcher.ts` — poll through the port at `PZ_POLL_MS`; keep polling, do not substitute a change-notification API.
+- [x] 4.10 `state/commands.ts` — write through the port.
 
 ## 5. Shared route table
 
-- [ ] 5.1 Export `makeRoutes(files, codecs)` from `packages/core` returning `Request → Response` handlers for every path in `server/src/index.ts`: `/api/state`, `/api/state/:category`, `/api/action`, `/api/model/*`, `/api/map/*`, `/game-icons/:name`.
+- [x] 5.1 Export `makeRoutes(files, codecs, { installDir, cacheDir, commandPath })` from `packages/core` returning a `Request → Response` handler for every path in `server/src/index.ts`: `/api/state`, `/api/state/:category`, `/api/action`, `/api/model/*`, `/api/map/*`, `/game-icons/:name`.
 - [ ] 5.2 Reduce `server/` to `apps/server`: config, node adapters, `Bun.serve` mounting `makeRoutes`, the `/ws` upgrade, and the SPA fallback.
 - [ ] 5.3 Move `compile` and `compile:all` to `apps/server` and confirm the single-file binary still bundles the frontend and runs from `dist/`.
 - [ ] 5.4 Diff the running server against `master` route by route — same status codes, same content types, same WebSocket frames — before considering the restructure done.
@@ -45,9 +45,9 @@
 
 ## 7. Browser app
 
-- [ ] 7.1 Scaffold `apps/browser` as a static `bun build` of `packages/web` plus the shape chosen in 1.1/1.2.
-- [ ] 7.2 Capability and secure-context detection with the unsupported-browser notice, before any picker is shown.
-- [ ] 7.3 FSA adapter implementing `GameFiles` against two directory handles.
+- [x] 7.1 Scaffold `apps/browser` as a static `bun build` of `packages/web` plus the shape chosen in 1.1/1.2.
+- [x] 7.2 Capability and secure-context detection with the unsupported-browser notice, before any picker is shown.
+- [x] 7.3 FSA adapter implementing `GameFiles` against two directory handles.
 - [ ] 7.4 Browser codecs: `createImageBitmap` + `OffscreenCanvas` for PNG, zip central-directory parse + `DecompressionStream('deflate-raw')` for the tile pyramid.
 - [ ] 7.5 Grant flow: data directory on first load, install directory lazily on first asset need, with the wrong-directory recovery path.
 - [ ] 7.6 Persist handles in IndexedDB and restore them; re-confirm access without re-picking when the permission has lapsed.

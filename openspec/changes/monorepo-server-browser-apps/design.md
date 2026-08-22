@@ -1,5 +1,19 @@
 ## Context
 
+## Decisions
+
+The Service Worker/File System Access spike is blocked in this checkout: no
+real `.pack` asset or granted game directory is available, so the worker could
+not serve a cropped icon request. The browser implementation uses the planned
+in-page fallback shape, with asynchronous asset URL access.
+
+The throwaway `bun build --compile` fixture resolved an HTML import across a
+workspace boundary successfully. `index.html` can live in `packages/web`.
+
+This change lands before `map-coordinate-readout`, `map-time-weather-tint`, and
+`container-loot-memory`; their task lists must use `packages/core` and
+`packages/web` paths after the move.
+
 See `proposal.md` — Why. What shapes the approach is that the existing
 `server/src/` is already almost entirely portable, and its coupling to the
 frontend is already almost entirely centralised. Both facts were measured
@@ -87,31 +101,49 @@ package boundary.
 
 ```ts
 interface GameFiles {
-  read(path: string): Promise<Uint8Array>;
+  read(path: string): Promise<Uint8Array<ArrayBuffer>>;
   list(dir: string): Promise<string[]>;
   stat(path: string): Promise<{ mtimeMs: number } | null>;
-  write(path: string, data: string): Promise<void>;
+  write(path: string, data: string | Uint8Array): Promise<void>;
 }
 ```
 
 Two roots are passed separately (the Zomboid data dir, read-write; the game
 install dir, read-only) because they have no common ancestor on any platform.
-`write` exists solely for `PZDashboard_command.json`.
+`write` takes bytes as well as text: besides `PZDashboard_command.json` it is
+how the extracted map tile pyramid reaches the cache, and routing PNG bytes
+through a string would corrupt every tile.
 
 Alternative considered: mirror `node:fs/promises` more completely, or model
 streams. Rejected — nothing in the ten modules needs more than these four,
 and every method added is a method the FSA adapter has to fake.
 
-### Codecs injected as two functions, not an interface
+### Codecs injected as three functions, not an interface
 
-`decodePng(bytes) → {width, height, rgba}` and
-`inflateZip(bytes) → Map<name, bytes>` are the only two capabilities that are
+`decodePng(bytes) → {width, height, rgba}`,
+`encodePng({width, height, rgba}) → bytes` and
+`inflateZip(bytes) → Map<name, bytes>` are the only capabilities that are
 platform-shaped rather than I/O-shaped. They are passed as plain functions.
 
-Node: the existing `node:zlib` decoder in `icons.ts` and the
-`unzip`/`tar` subprocess in `tiles.ts`, both unchanged in behaviour.
-Browser: `createImageBitmap` + an `OffscreenCanvas` `getImageData`, and a zip
-central-directory parse plus `DecompressionStream('deflate-raw')`.
+`encodePng` is the third because `renderIcon` does not just read atlases, it
+answers `/game-icons/*` with a PNG it wrote itself; leaving the encoder in
+`core` would have kept `node:zlib` in the shared package, which is the one
+thing the split exists to prevent.
+
+Node: the `node:zlib` PNG codec, moved out of `icons.ts` into
+`apps/server/src/png.ts` unchanged, and `inflateRawSync` behind the zip
+parser. Browser: `createImageBitmap` + an `OffscreenCanvas` `getImageData`,
+`convertToBlob` for the encode, and `DecompressionStream('deflate-raw')`.
+
+The zip *container* parse (end-of-central-directory scan, central directory
+walk, local header offsets) is identical on both platforms, so it lives in
+`packages/core/zip.ts` and takes the raw-deflate call as an argument. That
+replaces the `unzip`/`tar` subprocess the server used to shell out to: a
+subprocess cannot be reached from a browser, and `inflateZip(bytes)` has no
+path to hand it. Verified byte-identical to `unzip` on all 1784 entries of
+Muldraugh's pyramid. `listZip` reads the central directory without inflating
+anything, which is what `/api/map/:region` needs and what `unzip -l` used to
+provide.
 
 The browser PNG path is markedly *shorter* than the server's — `icons.ts`
 hand-rolls a decoder over `node:zlib` specifically to avoid an image
@@ -122,8 +154,10 @@ maths move into `core`.
 
 ### The route table is the shared contract
 
-`core` exports `makeRoutes(files, codecs)` returning handlers that take a
-`Request` and return a `Response`. Both hosts speak that dialect natively —
+`core` exports `makeRoutes(files, codecs, { installDir, cacheDir,
+commandPath })` returning a handler that takes a `Request` and returns a
+`Response`. The three paths are arguments rather than module-level config
+because the browser app has no environment to read them from. Both hosts speak that dialect natively —
 `Bun.serve` takes it directly, and a Service Worker `fetch` handler does
 `event.respondWith(...)`.
 
