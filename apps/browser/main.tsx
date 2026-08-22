@@ -88,7 +88,15 @@ function Root() {
   const [error, setError] = React.useState<string | null>(null);
   const [installPrompt, setInstallPrompt] = React.useState(false);
   const [installMessage, setInstallMessage] = React.useState<string | null>(null);
+  const [dataMessage, setDataMessage] = React.useState<string | null>(null);
   const [assetBusy, setAssetBusy] = React.useState(false);
+
+  // Dismissing the picker is a choice, not a failure, so it leaves the
+  // notice exactly as it was.
+  function rejectData(reason: unknown): void {
+    if (reason instanceof DOMException && reason.name === "AbortError") return;
+    setDataMessage(reasonText(reason));
+  }
 
   React.useEffect(() => {
     if (!supported) return;
@@ -165,8 +173,10 @@ function Root() {
   if (error && !access) return <BrowserNotice message={error} />;
   if (!access) {
     return (
-      <BrowserNotice message="Browser Direct mode reads game files only on this machine. Choose your Zomboid Lua directory, the folder containing PZDashboard_*.json, to begin.">
-        <ActionButton onClick={() => void requestData().then(setAccess).catch((reason) => setError(reasonText(reason)))}>Choose Zomboid data directory</ActionButton>
+      <BrowserNotice message={dataMessage ?? "Browser Direct mode reads game files only on this machine. Choose your Zomboid Lua directory, the folder containing PZDashboard_*.json, to begin."}>
+        <ActionButton onClick={() => void requestData().then(setAccess).catch(rejectData)}>
+          {dataMessage ? "Choose different directory" : "Choose Zomboid data directory"}
+        </ActionButton>
       </BrowserNotice>
     );
   }

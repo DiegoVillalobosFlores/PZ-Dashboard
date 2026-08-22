@@ -1,3 +1,4 @@
+import { FILE_PREFIX } from "../../packages/core/config";
 import { makeBrowserFiles, restoreHandles, saveHandles, type DirectoryHandle } from "./files";
 
 export type BrowserAccess = {
@@ -38,10 +39,42 @@ export async function validateInstall(handle: DirectoryHandle): Promise<string |
   }
 }
 
+// The two directories are easy to confuse, and picking the install folder
+// here looks exactly like a game that has not started yet. An empty Lua
+// folder is legitimate though - the mod has not written a snapshot until the
+// game runs once - so the absence of snapshots alone is never an error.
+export async function validateData(handle: DirectoryHandle): Promise<string | null> {
+  let snapshots = 0;
+  let settings = 0;
+  let looksLikeInstall = false;
+
+  try {
+    for await (const [name, entry] of handle.entries()) {
+      if (entry.kind === "directory") {
+        if (name === "media" || name === "steamapps") looksLikeInstall = true;
+        continue;
+      }
+      if (name.startsWith(FILE_PREFIX) && name.endsWith(".json")) snapshots++;
+      else if (name.endsWith(".ini")) settings++;
+    }
+  } catch {
+    return `Could not read "${handle.name}".`;
+  }
+
+  if (snapshots) return null;
+  if (looksLikeInstall) {
+    return `"${handle.name}" looks like the game install directory. This step wants the Zomboid data directory instead - the Lua folder holding ${FILE_PREFIX}*.json. The install directory is asked for separately, once a screen needs map or icon assets.`;
+  }
+  if (settings || handle.name.toLowerCase() === "lua") return null;
+  return `Expected the Zomboid data directory - the Lua folder holding ${FILE_PREFIX}*.json - but "${handle.name}" contained neither those snapshots nor any Zomboid settings files.`;
+}
+
 export async function requestData(): Promise<BrowserAccess> {
   const data = await window.showDirectoryPicker({ mode: "readwrite" });
   const readable = await permission(data, "read", true);
   if (!readable) throw new Error("Read access to Zomboid data directory is required.");
+  const invalid = await validateData(data);
+  if (invalid) throw new Error(invalid);
   const dataWritable = await permission(data, "readwrite", false);
   await saveHandles(data);
   return { data, dataWritable };

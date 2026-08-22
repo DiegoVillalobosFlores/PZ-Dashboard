@@ -71,6 +71,7 @@
 - [x] 8b.4 Fall back to a per-session memory cache when the origin has no private file system.
 - [x] 8b.5 Make `apiBase()` relative so URLs do not depend on how a host spells its origin.
 - [x] 8b.6 Confirm the single file boots from `file://` and the server app is unregressed.
+- [x] 8b.7 Validate the data directory grant the way the install grant is validated, naming the install-directory mix-up and accepting a Lua folder the mod has not written to yet.
 
 ## 9. Documentation and paths
 

@@ -77,6 +77,18 @@ install directory until a screen needs an asset that comes from it.
 - **THEN** the app reports which directory it expected and what it looked for
 - **AND** offers to pick again without discarding the other, valid grant
 
+#### Scenario: Install directory offered as the data directory
+
+- **WHEN** the user answers the first prompt with the game install directory
+- **THEN** the app says so by name rather than appearing to wait for the game
+- **AND** states that the install directory is asked for separately, later
+
+#### Scenario: Data directory the mod has not written to yet
+
+- **WHEN** the granted directory is a Zomboid data directory holding no
+  snapshots because the game has not run with the mod
+- **THEN** the app accepts it rather than rejecting it as the wrong folder
+
 ### Requirement: Grants persist across sessions
 
 The app SHALL remember granted directories between visits and SHALL restore
