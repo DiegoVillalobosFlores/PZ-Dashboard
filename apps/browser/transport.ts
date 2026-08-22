@@ -27,8 +27,17 @@ export type BrowserTransport = {
   dispose(): void;
 };
 
+// Chrome refuses `new Worker("file:///…")`, so the single-file build inlines
+// the worker bundle as a string and we start it from a Blob URL instead. A
+// hosted build has no inlined source and keeps the plain module worker.
+function startWatcherWorker(): Worker {
+  const inlined = (globalThis as { __PZ_WORKER_SRC?: string }).__PZ_WORKER_SRC;
+  if (!inlined) return new Worker(new URL("./watcher.worker.js", import.meta.url), { type: "module" });
+  return new Worker(URL.createObjectURL(new Blob([inlined], { type: "text/javascript" })));
+}
+
 export function makeBrowserTransport(data: DirectoryHandle, install?: DirectoryHandle): BrowserTransport {
-  const worker = new Worker(new URL("./watcher.worker.js", import.meta.url), { type: "module" });
+  const worker = startWatcherWorker();
   const messages = new Map<string, GameStateMessage>();
   let handlers: GameTransportHandlers | null = null;
   let ready = false;

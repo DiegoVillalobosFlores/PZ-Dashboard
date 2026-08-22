@@ -59,9 +59,18 @@
 
 ## 8. Verify against the specs
 
-- [ ] 8.1 Walk every scenario in `specs/browser-direct-mode/spec.md` against the running browser app, including the refusal and lapsed-permission paths.
-- [ ] 8.2 Run both apps against the same live game and confirm identical rendering on every screen.
+- [x] 8.1 Walk every scenario in `specs/browser-direct-mode/spec.md` against the running browser app, including the refusal and lapsed-permission paths.
+- [x] 8.2 Run both apps against the same live game and confirm identical rendering on every screen.
 - [x] 8.3 Confirm no game file contents leave the origin in the browser app.
+
+## 8b. Ship as one file the mod can carry
+
+- [x] 8b.1 Inline the entry bundle, stylesheet and worker into a single `index.html`, failing the build on any surviving relative reference.
+- [x] 8b.2 Start the watcher from a Blob URL, since `file://` refuses a worker script URL; build the worker as IIFE so a blob module has no imports to resolve.
+- [x] 8b.3 Escape `</script` in inlined JS so the React bundle cannot close its own tag.
+- [x] 8b.4 Fall back to a per-session memory cache when the origin has no private file system.
+- [x] 8b.5 Make `apiBase()` relative so URLs do not depend on how a host spells its origin.
+- [x] 8b.6 Confirm the single file boots from `file://` and the server app is unregressed.
 
 ## 9. Documentation and paths
 

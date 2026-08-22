@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
-import { PZ_INSTALL_DIR } from "./config";
 import { renderIcon } from "./icons";
 import { makeNodeFiles, nodeCodecs } from "../../apps/server/src/files";
+
+const PZ_INSTALL_DIR = process.env.PZ_INSTALL_DIR || "";
 
 test.skipIf(!PZ_INSTALL_DIR)("crops a known item icon out of the game's texture packs", async () => {
   const png = await renderIcon(makeNodeFiles(), nodeCodecs, PZ_INSTALL_DIR, "Item_Radish");

@@ -26,6 +26,7 @@ export async function listRegions(files: GameFiles, installDir: string): Promise
 }
 
 const extractions = new Map<string, Promise<string>>();
+const repaired = new Set<string>();
 
 // Extracts a region's tile pyramid into a disk cache on first request, then
 // reuses it - a few thousand small PNGs per region, cheap to keep around,
@@ -33,7 +34,16 @@ const extractions = new Map<string, Promise<string>>();
 function ensureExtracted(files: GameFiles, codecs: Codecs, installDir: string, cacheDir: string, region: string, force = false): Promise<string> {
   const key = `${installDir}\0${cacheDir}\0${region}`;
   const cached = extractions.get(key);
-  if (cached) return cached;
+  // The memo alone is not enough: a browser can evict the OPFS cache after
+  // we extracted into it, so re-check the marker still exists on disk
+  // before handing back a directory we only remember writing.
+  if (cached && !force) {
+    return cached.then(async (dir) => {
+      if (await files.stat(joinPath(dir, ".extracted"))) return dir;
+      extractions.delete(key);
+      return ensureExtracted(files, codecs, installDir, cacheDir, region);
+    });
+  }
 
   const promise = (async () => {
     const destDir = joinPath(cacheDir, region);
@@ -108,7 +118,13 @@ export async function getTilePath(files: GameFiles, codecs: Codecs, installDir: 
   const key = `${installDir}\0${cacheDir}\0${region}`;
   let dir = await ensureExtracted(files, codecs, installDir, cacheDir, region);
   let path = joinPath(dir, String(zoom), `tile${x}x${y}.png`);
-  if (!(await files.stat(path)) && await files.stat(joinPath(dir, ".extracted"))) {
+  // A missing tile under an intact marker means the cache was partially
+  // evicted - but it also means the coordinate was never in the pyramid,
+  // and we can't tell those apart without the zip listing. Repair the
+  // region at most once so a genuinely absent tile can't make every
+  // request for it re-extract the whole pyramid.
+  if (!(await files.stat(path)) && !repaired.has(key) && await files.stat(joinPath(dir, ".extracted"))) {
+    repaired.add(key);
     extractions.delete(key);
     dir = await ensureExtracted(files, codecs, installDir, cacheDir, region, true);
     path = joinPath(dir, String(zoom), `tile${x}x${y}.png`);

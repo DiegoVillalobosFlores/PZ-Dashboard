@@ -201,6 +201,43 @@ The package boundary and the port are identical either way, which is why the
 restructure was sequenced first and why moving to a worker later is a change
 confined to `apps/browser`.
 
+### Single-file build, because the Workshop ships files
+
+The Workshop distributes the mod as files, so the browser app has to be a file
+a subscriber opens - not a URL someone has to host. That means `file://`, and
+`file://` is a stricter host than it looks. Measured in Chrome: it *is* a
+secure context and `showDirectoryPicker` *is* available, so the grant flow
+works unchanged. Three things do not:
+
+- External `<script>` and `<link>` are blocked by CORS from origin `null`,
+  which is why an ordinary `bun build` output renders a blank page.
+- `new Worker("./watcher.worker.js")` throws `SecurityError`. A Blob-URL
+  worker is allowed, so the worker bundle is inlined as a string and started
+  from a Blob. It is built `--format iife` because a module worker created
+  from a `blob:` URL cannot resolve its own static imports.
+- `navigator.storage.getDirectory()` throws `SecurityError`, so there is no
+  origin-private storage for the derived-asset cache.
+
+`apps/browser/build.ts` therefore inlines the entry bundle, the stylesheet and
+the worker into one `index.html`, and fails the build if any relative
+reference survives. Inlined JS has `</script` escaped: the React bundle
+contains that sequence in a string literal and would otherwise close its own
+tag and spill the rest of itself into the page as text.
+
+Losing origin-private storage costs less than it first appears. `cacheDir` is
+only read by the raster tile pyramid and the decoded icon atlas pages, and the
+frontend does not use raster tiles at all - the map is vector
+(`/api/map/<region>/features`), and `tileUrl()` has no callers. So the
+practical loss is re-decoding icon atlas pages once per session, not
+re-extracting a 158 MB pyramid. `makeBrowserFiles` falls back to an in-memory
+cache when no cache handle is available, which keeps `packages/core`
+unchanged and unaware of the difference.
+
+Alternative rejected: hosting the static page and shipping a link. It keeps
+persistent storage and is one less build step, but it makes an offline,
+no-download mode depend on someone maintaining a host, which is the opposite
+of what the Workshop constraint asked for.
+
 ### Tooling: Bun workspaces, nothing else
 
 Root `package.json` gains `"workspaces": ["packages/*", "apps/*"]`. No
@@ -274,9 +311,9 @@ game with no mod redeployment.
 
 ## Open Questions
 
-- Where does `apps/browser` get hosted — GitHub Pages off this repo, or
-  bundled into the server app's static output so the server can serve it too?
-  Both work; it does not change the code.
+- Settled: `apps/browser` is not hosted. It builds to a single self-contained
+  `index.html` that ships inside the mod and runs from `file://`. Serving that
+  same file over HTTP still works and gains persistent asset caching.
 - Does the browser app persist its handles per-origin only, or offer an
   explicit "forget these folders" control? A privacy nicety, decidable after
   the grant flow exists.

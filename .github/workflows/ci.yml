@@ -13,6 +13,7 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
+      - run: bun test
       - run: bunx tsc -p tsconfig.json --noEmit
         working-directory: apps/server
       - run: bunx tsc -p tsconfig.json --noEmit

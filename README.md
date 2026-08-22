@@ -129,5 +129,7 @@ second screen the size of an Ayaneo.
    directory, which reads `PZ_LUA_DIR` from `apps/server/.env.local`).
 2. Run server mode: `cd apps/server && bun install && bun run dev`.
 3. Open `http://localhost:3000` on a phone, tablet or handheld.
-4. Or build browser mode: `cd apps/browser && bun run build`, host `dist/` on
-   a secure origin, and open it on the machine running the game.
+4. Or build browser mode: `cd apps/browser && bun run build`, then open
+   `dist/index.html` on the machine running the game. It is a single
+   self-contained file with no server and no network — the shape the mod
+   ships to Workshop subscribers.

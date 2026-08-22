@@ -51,7 +51,9 @@ rules below target those.
   `packages/web/` contains the shared React dashboard.
   `apps/server/` mounts core routes on Bun HTTP/WebSocket for LAN and
   second-device access. `apps/browser/` builds a static Chromium/File System
-  Access client for the machine running the game.
+  Access client for the machine running the game - a single self-contained
+  `index.html` that runs from `file://` so the mod can ship it to Workshop
+  subscribers; see `apps/browser/README.md` for what `file://` costs.
   The server watches the mod's JSON folder and exposes `/api/state*`,
   `/api/action`, `/api/model/*`, `/api/map/*`, `/game-icons/*` and `/ws`.
   **Before running the server or editing the mod against a live game, read

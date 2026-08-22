@@ -11,10 +11,16 @@
       "name": "@pz-dashboard/browser",
       "version": "0.1.0",
       "dependencies": {
+        "@mantine/core": "^9.5.1",
+        "@mantine/hooks": "^9.5.1",
         "@pz-dashboard/core": "workspace:*",
         "@pz-dashboard/web": "workspace:*",
+        "lucide-react": "^1.28.0",
         "react": "^19.2.8",
         "react-dom": "^19.2.8",
+        "react-router-dom": "^7.18.2",
+        "swr": "^2.5.0",
+        "three": "^0.185.1",
       },
       "devDependencies": {
         "@types/bun": "latest",

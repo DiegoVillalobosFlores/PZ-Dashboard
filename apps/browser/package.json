@@ -3,7 +3,26 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "build": "bun build.ts" },
-  "dependencies": { "@pz-dashboard/core": "workspace:*", "@pz-dashboard/web": "workspace:*", "react": "^19.2.8", "react-dom": "^19.2.8" },
-  "devDependencies": { "@types/bun": "latest", "@types/react": "^19.2.18", "@types/react-dom": "^19.2.4", "@types/three": "^0.185.4", "typescript": "^5" }
+  "scripts": {
+    "build": "bun build.ts"
+  },
+  "dependencies": {
+    "@mantine/core": "^9.5.1",
+    "@mantine/hooks": "^9.5.1",
+    "@pz-dashboard/core": "workspace:*",
+    "@pz-dashboard/web": "workspace:*",
+    "lucide-react": "^1.28.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2",
+    "swr": "^2.5.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@types/three": "^0.185.4",
+    "typescript": "^5"
+  }
 }

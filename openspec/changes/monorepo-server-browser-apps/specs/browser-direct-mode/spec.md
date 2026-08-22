@@ -6,6 +6,26 @@ and installed assets on the same machine.
 
 ## ADDED Requirements
 
+### Requirement: Ships as one file the mod can carry
+
+The Steam Workshop distributes files, not processes, so the build SHALL emit a
+single self-contained HTML file that runs when opened directly from the mod
+folder, with no server, no install step and no network access. It SHALL NOT
+reference any script, stylesheet or worker by relative URL, because an opaque
+origin cannot fetch them.
+
+#### Scenario: Opened from the mod folder
+
+- **WHEN** a subscriber opens the shipped HTML file directly from disk
+- **THEN** the dashboard boots and asks for the Zomboid data directory
+- **AND** no request is made for any script, stylesheet or worker file
+
+#### Scenario: Build emits a stray reference
+
+- **WHEN** the build would leave a relative script or stylesheet reference in
+  the page
+- **THEN** the build fails rather than shipping a page that cannot start
+
 ### Requirement: Capability detection before anything else
 
 The browser app SHALL determine, before requesting any directory access,
@@ -150,7 +170,10 @@ The app SHALL cache expensive derived assets — extracted map tiles, decoded
 icon atlas pages — in local browser storage so the extraction cost is paid
 once rather than per session. It SHALL remain usable while a first extraction
 is in progress, and SHALL recover from a cleared or evicted cache by
-re-extracting.
+re-extracting. Where the origin has no private file system — which is the
+case when the app is opened from `file://`, the form the mod ships — the app
+SHALL fall back to a per-session cache and remain correct, paying the
+derivation cost once per session instead of once per install.
 
 #### Scenario: First map view
 
@@ -168,6 +191,12 @@ re-extracting.
 
 - **WHEN** the browser has evicted the cached assets
 - **THEN** the app re-extracts them transparently rather than erroring
+
+#### Scenario: Origin has no private file system
+
+- **WHEN** the app runs from an origin where origin-private storage is refused
+- **THEN** it derives assets into a per-session cache instead of failing
+- **AND** every screen renders the same as it does with persistent storage
 
 ### Requirement: Local-only by design
 
