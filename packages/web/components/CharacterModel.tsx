@@ -518,10 +518,10 @@ export function CharacterModel({
     // window.fetch - so the browser app, whose /api/* only exists inside a
     // fetch handler, gets no textures at all and renders bare geometry.
     // ImageBitmapLoader uses fetch, so both apps resolve textures the same
-    // way. Decode the bitmap exactly as an <img> would, so three.js keeps
-    // applying its own flip and the UVs land where they always did.
+    // way. Texture.flipY is ignored for an ImageBitmap, so the flip a
+    // TextureLoader did on upload has to happen at bitmap creation instead.
     const loader = new THREE.ImageBitmapLoader();
-    loader.setOptions({ imageOrientation: 'from-image', premultiplyAlpha: 'none' });
+    loader.setOptions({ imageOrientation: 'flipY', premultiplyAlpha: 'none' });
 
     const group = new THREE.Group();
     group.position.y = -0.48;
