@@ -495,6 +495,8 @@ export function MapCanvas({
         overflow: 'hidden',
         background: BASE_MAP_COLOR,
         touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
         cursor: isDragging ? 'grabbing' : 'grab',
       }}
     >
