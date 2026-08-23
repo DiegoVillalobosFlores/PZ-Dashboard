@@ -514,7 +514,14 @@ export function CharacterModel({
   useEffect(() => {
     if (!figure) return;
     let cancelled = false;
-    const loader = new THREE.TextureLoader();
+    // TextureLoader loads through an <img> tag, which never passes through
+    // window.fetch - so the browser app, whose /api/* only exists inside a
+    // fetch handler, gets no textures at all and renders bare geometry.
+    // ImageBitmapLoader uses fetch, so both apps resolve textures the same
+    // way. Decode the bitmap exactly as an <img> would, so three.js keeps
+    // applying its own flip and the UVs land where they always did.
+    const loader = new THREE.ImageBitmapLoader();
+    loader.setOptions({ imageOrientation: 'from-image', premultiplyAlpha: 'none' });
 
     const group = new THREE.Group();
     group.position.y = -0.48;
@@ -544,8 +551,9 @@ export function CharacterModel({
         material.polygonOffsetUnits = -part.layer;
 
         if (part.texture) {
-          const texture = await loader.loadAsync(part.texture).catch(() => null);
-          if (texture) {
+          const bitmap = await loader.loadAsync(part.texture).catch(() => null);
+          if (bitmap) {
+            const texture = new THREE.CanvasTexture(bitmap);
             texture.colorSpace = THREE.SRGBColorSpace;
             material.map = texture;
             material.needsUpdate = true;

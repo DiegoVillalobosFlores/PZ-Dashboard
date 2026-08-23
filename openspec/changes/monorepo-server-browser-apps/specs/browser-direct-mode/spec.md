@@ -130,6 +130,12 @@ and status semantics, including the not-found and bad-request cases.
 - **THEN** the browser app returns the same shape of response the server app
   returns for that path
 
+#### Scenario: Asset loaded by a third-party library
+
+- **WHEN** a rendering library loads an asset from one of those paths
+- **THEN** it does so through the same request seam the rest of the frontend
+  uses, rather than by a mechanism the browser app cannot intercept
+
 #### Scenario: Unknown category
 
 - **WHEN** the frontend requests a state category the mod has not yet written

@@ -74,6 +74,7 @@
 - [x] 8b.7 Validate the data directory grant the way the install grant is validated, naming the install-directory mix-up and accepting a Lua folder the mod has not written to yet.
 - [x] 8b.8 Route on the hash when opened from disk, since `location.pathname` is then a filesystem path that matches no route; keep real paths when served.
 - [x] 8b.9 Make handle persistence non-fatal so denied or unavailable IndexedDB does not refuse a directory the user just picked.
+- [x] 8b.10 Load character textures through `fetch` rather than an `<img>` tag, which bypasses the browser app's request seam and leaves the model untextured.
 
 ## 9. Documentation and paths
 
