@@ -72,6 +72,8 @@
 - [x] 8b.5 Make `apiBase()` relative so URLs do not depend on how a host spells its origin.
 - [x] 8b.6 Confirm the single file boots from `file://` and the server app is unregressed.
 - [x] 8b.7 Validate the data directory grant the way the install grant is validated, naming the install-directory mix-up and accepting a Lua folder the mod has not written to yet.
+- [x] 8b.8 Route on the hash when opened from disk, since `location.pathname` is then a filesystem path that matches no route; keep real paths when served.
+- [x] 8b.9 Make handle persistence non-fatal so denied or unavailable IndexedDB does not refuse a directory the user just picked.
 
 ## 9. Documentation and paths
 

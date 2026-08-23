@@ -26,6 +26,13 @@ origin cannot fetch them.
   the page
 - **THEN** the build fails rather than shipping a page that cannot start
 
+#### Scenario: Navigating between screens from disk
+
+- **WHEN** the user moves between screens with the app opened from disk
+- **THEN** each screen renders, rather than matching no route because the
+  location is a filesystem path
+- **AND** the served build keeps its ordinary paths
+
 ### Requirement: Capability detection before anything else
 
 The browser app SHALL determine, before requesting any directory access,

@@ -104,7 +104,18 @@ export function makeBrowserFiles(data: DirectoryHandle, install?: DirectoryHandl
 const DB = "pz-dashboard";
 const STORE = "handles";
 
+// Remembering the grant is a convenience, not a precondition - private
+// windows and denied storage both fail here, and neither is a reason to
+// refuse a directory the user just picked.
 export async function saveHandles(data: DirectoryHandle, install?: DirectoryHandle): Promise<void> {
+  try {
+    await putHandles(data, install);
+  } catch (error) {
+    console.warn("[grants] could not remember directories for next visit:", error);
+  }
+}
+
+async function putHandles(data: DirectoryHandle, install?: DirectoryHandle): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readwrite");
   const store = tx.objectStore(STORE);
@@ -114,11 +125,17 @@ export async function saveHandles(data: DirectoryHandle, install?: DirectoryHand
 }
 
 export async function restoreHandles(): Promise<{ data?: DirectoryHandle; install?: DirectoryHandle }> {
-  const db = await openDb();
-  const tx = db.transaction(STORE, "readonly");
-  const store = tx.objectStore(STORE);
-  const [data, install] = await Promise.all([request(store.get("data")), request(store.get("install"))]);
-  return { data, install };
+  try {
+    const db = await openDb();
+    const tx = db.transaction(STORE, "readonly");
+    const store = tx.objectStore(STORE);
+    const [data, install] = await Promise.all([request(store.get("data")), request(store.get("install"))]);
+    return { data, install };
+  } catch {
+    // Nothing remembered is indistinguishable from nothing readable: both
+    // just mean the user gets asked for the directory again.
+    return {};
+  }
 }
 
 // Null when the origin has no private file system - Chrome refuses it on
