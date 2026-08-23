@@ -48,8 +48,8 @@ const CLICK_MOVE_THRESHOLD_PX = 6;
 type WorldPoint = { x: number; y: number };
 
 const DEFAULT_ZOOM_SQUARES = 320;
-const MIN_ZOOM_SQUARES = 40;
-const MAX_ZOOM_SQUARES = 2200;
+const MIN_ZOOM_SQUARES = 12;
+const MAX_ZOOM_SQUARES = 12000;
 
 const SMOOTHING_TIME_CONSTANT_MS = 120;
 const SNAP_DISTANCE_SQUARES = 40;
