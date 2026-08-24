@@ -43,6 +43,7 @@ to the per-category maximum.
 |----|------|------------------|-----|
 | `status` | `PZDashboard_status.json` | 1s | 30s |
 | `map` | `PZDashboard_map.json` | 0.25s | 30s |
+| `fog` | `PZDashboard_fog.json` | 2s | 60s |
 | `vehicles` | `PZDashboard_vehicles.json` | 2s | 60s |
 | `annotations` | `PZDashboard_annotations.json` | 5s | 60s |
 | `containers` | `PZDashboard_containers.json` | 2s | 60s |
@@ -50,14 +51,17 @@ to the per-category maximum.
 | `toolbar` | `PZDashboard_toolbar.json` | 1s | 30s |
 | `equipment` | `PZDashboard_equipment.json` | 1s | 30s |
 | `appearance` | `PZDashboard_appearance.json` | 2s | 60s |
+| `traits` | `PZDashboard_traits.json` | 10s | 60s |
 
 ### status
 
 Character name (forename, surname, display name), overall body health, and
 the raw `CharacterStat` need values: hunger, thirst, fatigue, endurance,
 stress, panic, boredom, pain. These run 0-1 and *higher is worse* — the
-dashboard inverts them for display. Plus two flags: `infected`, and
-`bleeding` (true if any body part has a non-zero bleeding time).
+dashboard inverts them for display. Plus `panicResistance` and
+`hoursSurvived`, the world clock (`hour`, `minute`, `day`, `month` and the
+climate's `temperature`), and two flags: `infected`, and `bleeding` (true if
+any body part has a non-zero bleeding time).
 
 ### map
 
@@ -65,6 +69,18 @@ Player position (`x`, `y`, `z`), forward direction vector (`dirX`, `dirY`),
 whether the player has a safehouse, and whether they're currently in a
 vehicle. Streamed fast (0.25s default) because the dashboard eases the map
 marker between fixes.
+
+### fog
+
+Which ground the player has uncovered on the in-game map, read from
+`WorldMapVisited`. The world is sampled in 32x32-square units, packed 8x8
+units to a cell as one bit per unit, and each cell is emitted as a hex
+string keyed by cell coordinates (`cells`, plus `unitSquares` and
+`cellSquares` so the dashboard can place them). A snapshot is only written
+when a bit actually changed. Sweeping the whole ~314k-unit grid every tick
+is far too many calls, so each run probes a slice of it (`FOG_UNITS_PER_PASS`)
+plus the area around the player first — walking reveals immediately, while a
+remote reveal (reading a map item) can take up to a minute to appear.
 
 ### vehicles
 
@@ -135,6 +151,14 @@ and for each worn garment the `clothingItem` id, body location, `hasModel`,
 `clothing/clothingItems/*.xml` and `hairStyles/*.xml` rather than
 reimplementing PZ's lookup rules in Lua.
 
+### traits
+
+Every trait the character has, from `TraitFactory`: `id`, `label`,
+`description`, `cost` (negative for negative traits), `profession` (true for
+the free ones a profession grants), an `icon` texture name, and `xpBoosts` —
+the perks the trait starts you ahead in, each with `perk`, `perkName` and
+`level`.
+
 ## Commands (server -> mod)
 
 The server writes a single-line `PZDashboard_command.json`
@@ -183,6 +207,11 @@ source mod into the matching `Zomboid/mods/PZDashboard` directory. Override
 the target with `PZ_LUA_DIR=/path/to/Zomboid/Lua bun scripts/deploy-mod.ts`.
 Reload Lua with F11 > Lua Debug > Reload Lua, reload the save, or restart the
 game after deployment.
+
+For a Workshop build, `bun scripts/package-workshop.ts` stages this folder
+plus the built browser app as `Dashboard.html` under
+`<Zomboid>/Workshop/PZDashboard/Contents/mods/PZDashboard`. `Dashboard.html`
+is not part of the source tree — it only exists in a packaged copy.
 
 ## File layout
 
