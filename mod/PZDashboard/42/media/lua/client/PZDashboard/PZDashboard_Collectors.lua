@@ -324,6 +324,13 @@ local FIXED_TRAIT_MODIFIERS = {
     },
     AllThumbs = {
         { label = "Inventory transfer time", value = "+100%" },
+        { label = "Climbing check", value = "-4 points" },
+        { label = "Rope climb speed", value = "-1 tier" },
+        { label = "Aiming delay", value = "+20%" },
+        { label = "Weapon unjam time", value = "+2s" },
+    },
+    Asthmatic = {
+        { label = "Endurance loss", value = "x1.2" },
     },
     Athletic = {
         { label = "Grapple effectiveness", value = "+25%" },
@@ -335,8 +342,17 @@ local FIXED_TRAIT_MODIFIERS = {
         { label = "Panic gain", value = "-70%" },
         { label = "Grapple effectiveness", value = "+10%" },
     },
+    Burglar = {
+        { label = "Climbing check", value = "+4 points" },
+        { label = "Rope climb speed", value = "+1 tier" },
+    },
     Clumsy = {
         { label = "Footstep sound radius", value = "+20%" },
+        { label = "Climbing check", value = "halved" },
+        { label = "Fence vault fall chance", value = "+10 points" },
+    },
+    Conspicuous = {
+        { label = "Chance to be spotted", value = "x1.2" },
     },
     Cowardly = {
         { label = "Panic gain", value = "+100%" },
@@ -345,19 +361,35 @@ local FIXED_TRAIT_MODIFIERS = {
     Crafty = {
         { label = "Crafting XP gain", value = "+30%" },
     },
-    Dextrous = {
-        { label = "Inventory transfer time", value = "-50%" },
+    Deaf = {
+        { label = "Perception radius", value = "2 tiles" },
     },
     Desensitized = {
         { label = "Panic gain", value = "-85%" },
         { label = "Panic after gain", value = "resets to 0" },
     },
-    Deaf = {
-        { label = "Perception radius", value = "2 tiles" },
+    Dextrous = {
+        { label = "Inventory transfer time", value = "-50%" },
+        { label = "Climbing check", value = "+4 points" },
+        { label = "Rope climb speed", value = "+1 tier" },
+        { label = "Aiming delay", value = "-20%" },
+        { label = "Weapon unjam time", value = "-2s" },
+    },
+    Disorganized = {
+        { label = "Container capacity", value = "x0.7" },
+    },
+    EagleEyed = {
+        { label = "Weapon sight range", value = "x1.2" },
     },
     Emaciated = {
         { label = "Starting weight", value = "50 kg" },
         { label = "Grapple effectiveness", value = "-40%" },
+        { label = "Melee damage dealt", value = "x0.4" },
+        { label = "Fall damage", value = "x1.4" },
+        { label = "Injury recovery", value = "x0.3" },
+    },
+    FastHealer = {
+        { label = "Vehicle hit injury", value = "x0.8" },
     },
     FastLearner = {
         { label = "Skill XP gain", value = "+30% except Strength/Fitness" },
@@ -367,6 +399,11 @@ local FIXED_TRAIT_MODIFIERS = {
     },
     Graceful = {
         { label = "Footstep sound radius", value = "-40%" },
+        { label = "Fence vault fall chance", value = "-10 points" },
+    },
+    Gymnast = {
+        { label = "Climbing check", value = "+4 points" },
+        { label = "Rope climb speed", value = "+1 tier" },
     },
     HardOfHearing = {
         { label = "Perception radius", value = "-1 tile" },
@@ -377,6 +414,9 @@ local FIXED_TRAIT_MODIFIERS = {
     HighThirst = {
         { label = "Thirst increase", value = "+100%" },
     },
+    Inconspicuous = {
+        { label = "Chance to be spotted", value = "x0.8" },
+    },
     KeenHearing = {
         { label = "Perception radius", value = "+3 tiles" },
     },
@@ -385,6 +425,9 @@ local FIXED_TRAIT_MODIFIERS = {
     },
     LowThirst = {
         { label = "Thirst increase", value = "-50%" },
+    },
+    Marksman = {
+        { label = "Critical hit chance", value = "+10 points" },
     },
     NeedsLessSleep = {
         { label = "Fatigue increase", value = "-30%" },
@@ -395,16 +438,46 @@ local FIXED_TRAIT_MODIFIERS = {
     Obese = {
         { label = "Starting weight", value = "105 kg" },
         { label = "Grapple effectiveness", value = "+5%" },
+        { label = "Climbing check", value = "-25 points" },
+        { label = "Rope climb speed", value = "-2 tiers" },
+        { label = "Fence vault fall chance", value = "+20 points" },
+        { label = "Fall damage", value = "x1.4" },
+        { label = "Injury recovery", value = "x0.4" },
+    },
+    Organized = {
+        { label = "Container capacity", value = "x1.3" },
     },
     Outdoorsman = {
         { label = "Tree clothing defense", value = "+50 points" },
+        { label = "Wetness rate", value = "x0.25" },
     },
     Overweight = {
         { label = "Starting weight", value = "95 kg" },
         { label = "Grapple effectiveness", value = "+10%" },
+        { label = "Climbing check", value = "-15 points" },
+        { label = "Rope climb speed", value = "-1 tier" },
+        { label = "Fence vault fall chance", value = "+10 points" },
+        { label = "Fall damage", value = "x1.2" },
+        { label = "Injury recovery", value = "x0.7" },
     },
     Pacifist = {
         { label = "Combat XP gain", value = "-25%" },
+    },
+    ProneToIllness = {
+        { label = "Wetness rate", value = "x1.7" },
+        { label = "Cold progression", value = "x1.2" },
+        { label = "Cold recovery", value = "x0.5" },
+    },
+    Resilient = {
+        { label = "Wetness rate", value = "x0.45" },
+        { label = "Cold progression", value = "x0.8" },
+        { label = "Cold recovery", value = "x1.5" },
+    },
+    ShortSighted = {
+        { label = "Weapon sight range", value = "minimum unless wearing glasses" },
+    },
+    SlowHealer = {
+        { label = "Vehicle hit injury", value = "x1.2" },
     },
     SlowLearner = {
         { label = "Skill XP gain", value = "-30% except Strength/Fitness" },
@@ -417,6 +490,7 @@ local FIXED_TRAIT_MODIFIERS = {
     },
     Strong = {
         { label = "Grapple effectiveness", value = "+25%" },
+        { label = "Melee knockback", value = "x1.4" },
     },
     ThickSkinned = {
         { label = "Zombie injury protection", value = "x1.3" },
@@ -428,10 +502,17 @@ local FIXED_TRAIT_MODIFIERS = {
     },
     Underweight = {
         { label = "Starting weight", value = "70 kg" },
+        { label = "Melee damage dealt", value = "x0.8" },
     },
     VeryUnderweight = {
         { label = "Starting weight", value = "60 kg" },
         { label = "Grapple effectiveness", value = "-20%" },
+        { label = "Melee damage dealt", value = "x0.6" },
+        { label = "Fall damage", value = "x1.2" },
+        { label = "Injury recovery", value = "x0.7" },
+    },
+    Weak = {
+        { label = "Melee knockback", value = "x0.6" },
     },
 }
 
