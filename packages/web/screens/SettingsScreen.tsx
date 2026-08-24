@@ -3,6 +3,7 @@ import { GlassPanel } from '../components/GlassPanel';
 import { ScreenModal } from '../components/ScreenModal';
 import {
   useFogOfWar,
+  useShowSummary,
   useShowTraits,
   useConditionClusterSettings,
   type ClusterStatSettings,
@@ -90,6 +91,7 @@ function SectionLabel({ children }: { children: string }) {
 
 export function SettingsScreen() {
   const [fogOfWar, setFogOfWar] = useFogOfWar();
+  const [showSummary, setShowSummary] = useShowSummary();
   const [showTraits, setShowTraits] = useShowTraits();
   const [settings, setSettings] = useConditionClusterSettings();
 
@@ -151,6 +153,13 @@ export function SettingsScreen() {
         </label>
 
         <div style={{ marginTop: 16 }}>
+          <SettingRow
+            title="Skills summary"
+            hint="Show the trait effects summary on the Skills screen"
+            checked={showSummary}
+            onChange={setShowSummary}
+          />
+
           <SettingRow
             title="Traits list"
             hint="Show character traits on the Skills screen"

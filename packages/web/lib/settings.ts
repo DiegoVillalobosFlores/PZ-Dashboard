@@ -18,6 +18,14 @@ export function useShowTraits() {
   });
 }
 
+export function useShowSummary() {
+  return useLocalStorage({
+    key: 'pz-dashboard.showSummary',
+    defaultValue: true,
+    getInitialValueInEffect: false,
+  });
+}
+
 export interface ClusterStatSettings {
   health: boolean;
   hunger: boolean;

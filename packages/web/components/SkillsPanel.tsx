@@ -2,7 +2,7 @@ import { Icon } from './Icon';
 import { GlassPanel } from './GlassPanel';
 import { TraitsList } from './TraitsList';
 import { MAX_SKILL_LEVEL, type SkillCategoryState, type SkillState } from '../lib/skills';
-import { useShowTraits } from '../lib/settings';
+import { useShowSummary, useShowTraits } from '../lib/settings';
 import { useGameSubscription } from '../lib/gameSocket';
 import { summarizeTraitEffects } from '../lib/traits';
 import { useLocalStorage } from '@mantine/hooks';
@@ -271,12 +271,20 @@ export function SkillsPanel({
   emptyMessage?: string;
 }) {
   const tileWidth = compact ? 86 : 172;
+  const [showSummary] = useShowSummary();
   const [showTraits] = useShowTraits();
   const [mobileTab, setMobileTab] = useLocalStorage<'summary' | 'traits' | 'skills'>({
     key: 'pz-dashboard.skillsMobileTab',
     defaultValue: 'summary',
     getInitialValueInEffect: false,
   });
+  const activeMobileTab =
+    (mobileTab === 'summary' && !showSummary) || (mobileTab === 'traits' && !showTraits)
+      ? 'skills'
+      : mobileTab;
+  const availableMobileTabs = (['summary', 'traits', 'skills'] as const).filter(
+    (tab) => (tab !== 'summary' || showSummary) && (tab !== 'traits' || showTraits),
+  );
 
   const header = (
     <span
@@ -318,18 +326,18 @@ export function SkillsPanel({
 
   const mobileTabs = (
     <div role="tablist" aria-label="Skills sections" style={{ display: 'flex', gap: 4, width: '100%' }}>
-      {(['summary', 'traits', 'skills'] as const).map((tab) => (
+      {availableMobileTabs.map((tab) => (
         <button
           key={tab}
           type="button"
           role="tab"
-          aria-selected={mobileTab === tab}
+          aria-selected={activeMobileTab === tab}
           onClick={() => setMobileTab(tab)}
           style={{
             flex: 1,
             padding: '8px 4px',
-            color: mobileTab === tab ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-            background: mobileTab === tab ? 'var(--color-accent-fill-weak)' : 'var(--color-glass-inset)',
+            color: activeMobileTab === tab ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+            background: activeMobileTab === tab ? 'var(--color-accent-fill-weak)' : 'var(--color-glass-inset)',
             border: '1px solid var(--color-border-default)',
             borderRadius: 'var(--radius-sharp)',
             fontFamily: 'var(--font-display)',
@@ -362,7 +370,7 @@ export function SkillsPanel({
       >
       {header}
       {compact && mobileTabs}
-      {(!compact || mobileTab === 'summary') && (
+      {showSummary && (!compact || activeMobileTab === 'summary') && (
         <div style={{ flex: compact ? '1 1 0' : undefined, minHeight: compact ? 0 : undefined, display: 'flex' }}>
           <SummaryRow compact={compact} showTraits={showTraits} />
         </div>
@@ -373,7 +381,7 @@ export function SkillsPanel({
           minWidth: 0,
           minHeight: 0,
           width: '100%',
-          display: compact && mobileTab === 'summary' ? 'none' : compact ? 'flex' : 'grid',
+          display: compact && activeMobileTab === 'summary' ? 'none' : compact ? 'flex' : 'grid',
           flexDirection: compact ? 'column' : undefined,
           gridTemplateColumns: compact ? undefined : showTraits ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr',
           alignItems: 'stretch',
@@ -381,7 +389,7 @@ export function SkillsPanel({
           overflow: compact ? 'auto' : 'hidden',
         }}
       >
-        {(!compact || mobileTab === 'traits') && showTraits && (
+        {(!compact || activeMobileTab === 'traits') && showTraits && (
           <div
             style={{
               flex: compact ? '0 0 auto' : undefined,
@@ -394,7 +402,7 @@ export function SkillsPanel({
             <TraitsList compact={compact} />
           </div>
         )}
-        {(!compact || mobileTab === 'skills') && skillsContent}
+        {(!compact || activeMobileTab === 'skills') && skillsContent}
       </div>
     </GlassPanel>
   );
