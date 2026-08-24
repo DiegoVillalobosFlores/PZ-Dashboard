@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import type { TraitSnapshot } from './liveTypes';
-import { signedLevel, sortTraits, traitEffects } from './traits';
+import { signedLevel, sortTraits, summarizeTraitEffects, traitEffects } from './traits';
 
 function trait(overrides: Partial<TraitSnapshot> = {}): TraitSnapshot {
   return {
@@ -51,6 +51,21 @@ test('returns game modifiers before boost effects', () => {
   ).toEqual([
     { kind: 'modifier', text: 'Panic gain +100%' },
     { kind: 'boost', perk: 'Fitness', level: 4 },
+  ]);
+});
+
+test('summarizes every trait effect with its source', () => {
+  expect(
+    summarizeTraitEffects([
+      trait({
+        label: 'Brave',
+        modifiers: [{ label: 'Panic gain', value: '-70%' }],
+        xpBoosts: [{ perk: 'Axe', perkName: 'Axe', level: 2 }],
+      }),
+    ]),
+  ).toEqual([
+    { source: 'Brave', value: 'Panic gain -70%', category: 'combat' },
+    { source: 'Brave', value: 'Axe +2', category: 'combat' },
   ]);
 });
 

@@ -3,6 +3,8 @@ import { GlassPanel } from './GlassPanel';
 import { TraitsList } from './TraitsList';
 import { MAX_SKILL_LEVEL, type SkillCategoryState, type SkillState } from '../lib/skills';
 import { useShowTraits } from '../lib/settings';
+import { useGameSubscription } from '../lib/gameSocket';
+import { summarizeTraitEffects } from '../lib/traits';
 
 const MAX_LEVEL = MAX_SKILL_LEVEL;
 
@@ -98,6 +100,127 @@ function SkillTile({ skill, width, compact }: { skill: SkillState; width: number
       )}
       <SkillMeter level={skill.level} progress={skill.progress} />
     </div>
+  );
+}
+
+function SummaryChip({ source, value }: { source: string; value: string }) {
+  return (
+    <span
+      title={`${source}: ${value}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        gap: 5,
+        maxWidth: '100%',
+        minWidth: 0,
+        padding: '3px 6px',
+        color: 'var(--color-text-primary)',
+        background: 'var(--color-tile-bg)',
+        border: '1px solid var(--color-border-default)',
+        borderLeft: '2px solid var(--color-warning)',
+        borderRadius: 'var(--radius-sharp)',
+        fontSize: 10,
+        lineHeight: 1.2,
+        fontFamily: 'var(--font-mono)',
+        whiteSpace: 'normal',
+        overflowWrap: 'anywhere',
+      }}
+    >
+      <span style={{ color: 'var(--color-text-secondary)' }}>{source}</span>
+      <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>{value}</span>
+    </span>
+  );
+}
+
+function SummaryRow({
+  compact,
+  showTraits,
+}: {
+  compact: boolean;
+  showTraits: boolean;
+}) {
+  const traitSnapshot = useGameSubscription('traits', (msg) =>
+    msg.category === 'traits' ? msg.data : undefined,
+  );
+  const traitEffects = showTraits
+    ? summarizeTraitEffects(traitSnapshot?.traits)
+    : [];
+  const columns = [
+    { label: 'Combat', effects: traitEffects.filter((effect) => effect.category === 'combat') },
+    { label: 'Other', effects: traitEffects.filter((effect) => effect.category === 'other') },
+  ];
+
+  return (
+    <section
+      aria-label="Summary"
+      style={{
+        display: 'flex',
+        flexDirection: compact ? 'column' : 'row',
+        alignItems: compact ? 'stretch' : 'flex-start',
+        gap: 10,
+        minWidth: 0,
+        padding: '10px 12px',
+        background: 'var(--color-glass-inset)',
+        border: '1px solid var(--color-border-default)',
+        borderRadius: 'var(--radius-sharp)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexShrink: 0 }}>
+        <span
+          className="pz-label"
+          style={{
+            color: 'var(--color-text-primary)',
+            fontSize: 11,
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+          }}
+        >
+          Summary
+        </span>
+        <span style={{ color: 'var(--color-text-tertiary)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+          {traitEffects.length}
+        </span>
+      </div>
+      <div
+        style={{
+          flex: '1 1 auto',
+          minWidth: 0,
+          maxHeight: 140,
+          overflowY: 'auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          alignItems: 'start',
+          gap: 10,
+        }}
+      >
+        {columns.map((column) => (
+          <div key={column.label} style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span
+              className="pz-label"
+              style={{
+                color: column.label === 'Combat' ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                fontSize: 9,
+                fontFamily: 'var(--font-display)',
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+              }}
+            >
+              {column.label}
+            </span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: 5 }}>
+              {column.effects.length === 0 ? (
+                <span style={{ color: 'var(--color-text-tertiary)', fontSize: 11 }}>None</span>
+              ) : (
+                column.effects.map((effect, index) => (
+                  <SummaryChip key={`${effect.source}-${index}`} source={effect.source} value={effect.value} />
+                ))
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -199,6 +322,7 @@ export function SkillsPanel({
       }}
       >
       {header}
+      <SummaryRow compact={compact} showTraits={showTraits} />
       <div
         style={{
           flex: compact ? '1 1 0' : '0 1 auto',

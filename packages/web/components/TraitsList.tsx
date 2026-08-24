@@ -1,7 +1,7 @@
 import { Tooltip } from '@mantine/core';
 import { Icon } from './Icon';
 import { useGameConnection, useGameSubscription } from '../lib/gameSocket';
-import { signedLevel, sortTraits, traitEffects, type TraitEffect } from '../lib/traits';
+import { formatTraitEffect, sortTraits, traitEffects, type TraitEffect } from '../lib/traits';
 import type { TraitSnapshot } from '../lib/liveTypes';
 import { useAssetUrl } from '../lib/assetUrl';
 
@@ -86,7 +86,7 @@ function EffectContent({ effect }: { effect: TraitEffect }) {
         overflowWrap: 'anywhere',
       }}
     >
-      {effect.kind === 'boost' ? `${effect.perk} ${signedLevel(effect.level)}` : effect.text}
+      {formatTraitEffect(effect)}
     </span>
   );
 }
