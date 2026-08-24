@@ -180,7 +180,7 @@ function PZDashboard.Containers.enumerate(player)
     table.insert(records, {
         id = "floor",
         kind = "floor",
-        name = safe(function() return getText("IGUI_InventoryFloor") end, "Floor", "containers.floorName"),
+        name = safe(function() return getTextOrNull("ContextMenu_Floor") end, nil, "containers.floorName") or "Floor",
         type = "floor",
         icon = "",
         x = px, y = py, z = pz,
