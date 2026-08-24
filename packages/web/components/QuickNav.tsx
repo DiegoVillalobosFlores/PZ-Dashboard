@@ -138,8 +138,7 @@ export function QuickNav({ currentId }: { currentId: string }) {
               color={active ? 'var(--color-accent)' : 'var(--color-text-secondary)'}
               strokeWidth={active ? 2.5 : 2}
 							/>
-							<span style={{ fontSize: 9, color: active ? 'var(--color-accent)' : 'var(--color-text-tertiary)' }}>{d.shortcut}</span>
-            <span
+	            <span
               className="pz-label"
               style={{
                 fontSize: 9,
