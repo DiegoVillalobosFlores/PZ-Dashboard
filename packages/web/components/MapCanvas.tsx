@@ -1,28 +1,30 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMediaQuery } from '@mantine/hooks';
-import { Car, Navigation } from 'lucide-react';
 import { Icon } from './Icon';
 import { HudIconButton } from './HudIconButton';
 import {
   BASE_MAP_COLOR,
-  DRAW_ORDER,
-  FEATURE_COLOR,
   queryRoute,
   queryVectorMap,
-  type FeatureCategory,
   type RoutePoint,
   type VectorMapData,
 } from '../lib/vectorMap';
-import { DEFAULT_MAP_REGION } from '../lib/mapTiles';
+import {
+  BROAD_VIEW_ZOOM_SQUARES,
+  DEFAULT_MAP_REGION,
+  queryMapMeta,
+  type MapRegionMeta,
+} from '../lib/mapTiles';
 import { useGameSubscription } from '../lib/gameSocket';
 import { useMapFocus } from '../lib/mapFocus';
 import { useModalContext } from './ModalContext';
-import { FogOverlay } from './FogOverlay';
 import { useFogOfWar } from '../lib/settings';
-import { annotationColor } from '../lib/annotations';
 import { useAssetRevision } from '../lib/assetUrl';
 import type { MapPin } from '../mock/gameState';
 import type { VehicleSnapshot } from '../lib/liveTypes';
+import { MapOverlayLayer, VectorGeometryLayer, VectorLabelsLayer } from './MapLayers';
+import { MapTileLayer, useMapTiles } from './MapTileLayer';
+import { panCenter, screenToWorld as cameraScreenToWorld, zoomAroundAnchor } from '../lib/mapCamera';
 
 const PIN_COLOR: Record<MapPin['kind'], string> = {
   player: 'var(--color-accent)',
@@ -30,7 +32,6 @@ const PIN_COLOR: Record<MapPin['kind'], string> = {
   poi: 'var(--color-danger)',
 };
 
-const ROUTE_COLOR = '#000000';
 // The mod forgets every vehicle when the game restarts, so the browser keeps
 // the one that matters - the car you last drove - to find it again next session.
 const VEHICLE_STORE_KEY = 'pz-dashboard.vehicle';
@@ -56,15 +57,6 @@ const SNAP_DISTANCE_SQUARES = 40;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function polygonPoints(points: [number, number][]): string {
-  return points.map(([x, y]) => `${x},${y}`).join(' ');
-}
-
-function midpoint(points: [number, number][]): [number, number] {
-  const mid = points[Math.floor(points.length / 2)];
-  return mid ?? [0, 0];
 }
 
 function pointerDistance(a: WorldPoint, b: WorldPoint): number {
@@ -183,6 +175,8 @@ export function MapCanvas({
   }, [liveVehicles]);
 
   const [data, setData] = useState<VectorMapData | null>(null);
+  const [mapMeta, setMapMeta] = useState<MapRegionMeta | null>(null);
+  const [mapMetaStatus, setMapMetaStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [zoomSquares, setZoomSquares] = useState(DEFAULT_ZOOM_SQUARES);
   const [manualCenter, setManualCenter] = useState<WorldPoint | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -194,6 +188,8 @@ export function MapCanvas({
   const [destination, setDestination] = useState<WorldPoint | null>(null);
   const [routePoints, setRoutePoints] = useState<RoutePoint[] | null>(null);
   const [routeIsDirect, setRouteIsDirect] = useState(false);
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [vectorLoading, setVectorLoading] = useState(false);
 
   const liveCenter = position ? { x: position.x, y: position.y } : null;
   const smoothedCenter = useSmoothedPoint(liveCenter);
@@ -207,6 +203,7 @@ export function MapCanvas({
     : 0;
   const center = manualCenter ?? smoothedCenter;
   const fetchCenter = manualCenter ?? liveCenter;
+  const wantsRaster = zoomSquares >= BROAD_VIEW_ZOOM_SQUARES - 1;
 
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const centerRef = useRef(center);
@@ -215,6 +212,15 @@ export function MapCanvas({
   manualCenterRef.current = manualCenter;
   const zoomRef = useRef(zoomSquares);
   zoomRef.current = zoomSquares;
+  const fetchedBoundsRef = useRef<{ region: string; x1: number; y1: number; x2: number; y2: number } | null>(null);
+
+  const tileState = useMapTiles(mapMeta, {
+    center: center ?? { x: 0, y: 0 },
+    zoomSquares,
+    width: viewportSize.width,
+    height: viewportSize.height,
+  });
+  const useRaster = wantsRaster && tileState.supported && !tileState.failed;
 
   const pointersRef = useRef(new Map<number, WorldPoint>());
   const recenterClickedAtRef = useRef(0);
@@ -224,32 +230,52 @@ export function MapCanvas({
     | null
   >(null);
 
+  useEffect(() => {
+    if (!containerEl) return;
+    const update = () => {
+      const rect = containerEl.getBoundingClientRect();
+      setViewportSize((current) => (current.width === rect.width && current.height === rect.height ? current : { width: rect.width, height: rect.height }));
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
+    const observer = new ResizeObserver(update);
+    observer.observe(containerEl);
+    return () => observer.disconnect();
+  }, [containerEl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setData(null);
+    fetchedBoundsRef.current = null;
+    setMapMeta(null);
+    setMapMetaStatus('loading');
+    queryMapMeta(region)
+      .then((result) => {
+        if (cancelled) return;
+        setMapMeta(result);
+        setMapMetaStatus(result ? 'ready' : 'failed');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMapMeta(null);
+        setMapMetaStatus('failed');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [region, assetRevision]);
+
   function zoomAt(clientX: number, clientY: number, factor: number, rect: DOMRect) {
     const current = centerRef.current;
     if (!current) return;
-    const span = Math.max(rect.width, rect.height);
-    const upp = zoomRef.current / span;
-    const anchorWorldX = current.x + (clientX - rect.left - rect.width / 2) * upp;
-    const anchorWorldY = current.y + (clientY - rect.top - rect.height / 2) * upp;
-
-    const nextZoom = clamp(zoomRef.current * factor, MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES);
-    const uppNext = nextZoom / span;
-    const nextCenterX = anchorWorldX - (clientX - rect.left - rect.width / 2) * uppNext;
-    const nextCenterY = anchorWorldY - (clientY - rect.top - rect.height / 2) * uppNext;
-
-    setZoomSquares(nextZoom);
-    if (manualCenterRef.current) setManualCenter({ x: nextCenterX, y: nextCenterY });
-  }
-
-  function screenToWorld(clientX: number, clientY: number, rect: DOMRect): WorldPoint | null {
-    const current = centerRef.current;
-    if (!current) return null;
-    const span = Math.max(rect.width, rect.height);
-    const upp = zoomRef.current / span;
-    return {
-      x: current.x + (clientX - rect.left - rect.width / 2) * upp,
-      y: current.y + (clientY - rect.top - rect.height / 2) * upp,
-    };
+    const next = zoomAroundAnchor(current, zoomRef.current, factor, clientX, clientY, rect, MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES);
+    setZoomSquares(next.zoomSquares);
+    const offsetX = clientX - rect.left - rect.width / 2;
+    const offsetY = clientY - rect.top - rect.height / 2;
+    if (manualCenterRef.current || Math.abs(offsetX) > 1 || Math.abs(offsetY) > 1) setManualCenter(next.center);
   }
 
   useMapFocus((target) => {
@@ -308,10 +334,7 @@ export function MapCanvas({
     const span = Math.max(rect.width, rect.height);
 
     if (gesture.mode === 'pan' && pointersRef.current.size === 1) {
-      const upp = zoomRef.current / span;
-      const dx = (e.clientX - gesture.startClientX) * upp;
-      const dy = (e.clientY - gesture.startClientY) * upp;
-      setManualCenter({ x: gesture.startCenter.x - dx, y: gesture.startCenter.y - dy });
+      setManualCenter(panCenter(gesture.startCenter, gesture.startClientX, gesture.startClientY, e.clientX, e.clientY, zoomRef.current, rect));
     } else if (gesture.mode === 'pinch' && pointersRef.current.size === 2) {
       const [a, b] = [...pointersRef.current.values()];
       const distance = Math.max(pointerDistance(a!, b!), 1);
@@ -338,7 +361,7 @@ export function MapCanvas({
       if (gesture?.mode === 'pan') {
         const movedPx = Math.hypot(e.clientX - gesture.startClientX, e.clientY - gesture.startClientY);
         if (movedPx < CLICK_MOVE_THRESHOLD_PX) {
-          const world = screenToWorld(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
+          const world = centerRef.current && cameraScreenToWorld(centerRef.current, zoomRef.current, e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
           if (world) setDestination(world);
         }
       }
@@ -355,10 +378,13 @@ export function MapCanvas({
     zoomAt(e.clientX, e.clientY, 0.5, e.currentTarget.getBoundingClientRect());
   }
 
-  const fetchedBoundsRef = useRef<{ region: string; x1: number; y1: number; x2: number; y2: number } | null>(null);
-
   useEffect(() => {
-    if (!fetchCenter) return;
+    const tileViewportReady = viewportSize.width > 0 && viewportSize.height > 0;
+    const needVector = !useRaster && (!wantsRaster || (tileViewportReady && (mapMetaStatus === 'failed' || (mapMetaStatus === 'ready' && !tileState.supported) || tileState.failed)));
+    if (!needVector || !fetchCenter) {
+      setVectorLoading(false);
+      return;
+    }
     const half = zoomSquares / 2;
     const bounds = fetchedBoundsRef.current;
     const covered =
@@ -379,18 +405,24 @@ export function MapCanvas({
       y2: fetchCenter.y + half + padding,
     };
     let cancelled = false;
+    setVectorLoading(true);
     const timer = setTimeout(() => {
       queryVectorMap(region, next.x1, next.y1, next.x2, next.y2).then((result) => {
         if (cancelled) return;
-        setData(result);
-        fetchedBoundsRef.current = next;
+        if (result) {
+          setData(result);
+          fetchedBoundsRef.current = next;
+        }
+      }).catch(() => undefined).finally(() => {
+        if (!cancelled) setVectorLoading(false);
       });
     }, 150);
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      setVectorLoading(false);
     };
-  }, [region, fetchCenter?.x, fetchCenter?.y, zoomSquares, assetRevision]);
+  }, [region, fetchCenter?.x, fetchCenter?.y, zoomSquares, assetRevision, mapMetaStatus, tileState.failed, tileState.supported, useRaster, wantsRaster, viewportSize.width, viewportSize.height]);
 
   useEffect(() => {
     if (!destination || !liveCenter) {
@@ -414,70 +446,7 @@ export function MapCanvas({
     };
   }, [region, destination?.x, destination?.y, liveCenter?.x, liveCenter?.y]);
 
-  const labelSize = zoomSquares / 34;
-  const placeLabelSize = zoomSquares / 16;
-
-  const basemap = useMemo(() => {
-    if (!data) return null;
-
-    const byCategory = new Map<FeatureCategory, string[]>();
-    for (const feature of data.features) {
-      const points = byCategory.get(feature.category);
-      if (points) points.push(polygonPoints(feature.points));
-      else byCategory.set(feature.category, [polygonPoints(feature.points)]);
-    }
-
-    return (
-      <>
-        {DRAW_ORDER.map((category) => (
-          <g key={category} fill={FEATURE_COLOR[category]}>
-            {(byCategory.get(category) ?? []).map((points, i) => (
-              <polygon key={i} points={points} />
-            ))}
-          </g>
-        ))}
-
-        {data.streets.map((street, i) => {
-          const [x, y] = midpoint(street.points);
-          return (
-            <text
-              key={i}
-              x={x}
-              y={y}
-              fontSize={labelSize}
-              fill="rgba(0,0,0,0.65)"
-              stroke={BASE_MAP_COLOR}
-              strokeWidth={labelSize / 6}
-              paintOrder="stroke"
-              textAnchor="middle"
-              fontStyle="italic"
-            >
-              {street.name}
-            </text>
-          );
-        })}
-
-        {data.places.map((place, i) => (
-          <text
-            key={i}
-            x={place.x}
-            y={place.y}
-            fontSize={placeLabelSize}
-            fill="rgba(0,0,0,0.85)"
-            stroke={BASE_MAP_COLOR}
-            strokeWidth={placeLabelSize / 5}
-            paintOrder="stroke"
-            textAnchor="middle"
-            fontWeight="bold"
-          >
-            {place.name}
-          </text>
-        ))}
-      </>
-    );
-  }, [data, labelSize, placeLabelSize]);
-
-  if (!center || !data) return <PlaceholderGrid pins={pins ?? []} />;
+  if (!center || (!data && !useRaster)) return <PlaceholderGrid pins={pins ?? []} />;
 
   const half = zoomSquares / 2;
 
@@ -499,6 +468,19 @@ export function MapCanvas({
         WebkitUserSelect: 'none',
         cursor: isDragging ? 'grabbing' : 'grab',
       }}
+      data-map-root="true"
+      data-map-zoom-squares={zoomSquares}
+      data-map-base={useRaster ? 'raster' : 'vector'}
+      data-map-loading={String(useRaster ? tileState.loading : vectorLoading || !data)}
+      data-map-tile-count={useRaster ? tileState.tiles.length : 0}
+      data-map-feature-count={data?.features.length ?? 0}
+      data-map-label-count={data ? data.streets.length + data.places.length : 0}
+      data-map-fallback={String(wantsRaster && !useRaster)}
+      data-map-fog={String(fogOfWar)}
+      data-map-annotation-count={annotations?.length ?? 0}
+      data-map-vehicle={String(Boolean(vehicle && !position?.inVehicle))}
+      data-map-route={String(Boolean(routePoints && routePoints.length > 1))}
+      data-map-destination={String(Boolean(destination))}
     >
       <svg
         width="100%"
@@ -506,127 +488,28 @@ export function MapCanvas({
         viewBox={`${center.x - half} ${center.y - half} ${zoomSquares} ${zoomSquares}`}
         preserveAspectRatio="xMidYMid slice"
       >
-        {basemap}
+        {useRaster ? (
+          <MapTileLayer tiles={tileState.tiles} />
+        ) : data ? (
+          <>
+            <VectorGeometryLayer data={data} />
+            <VectorLabelsLayer data={data} labelSize={zoomSquares / 34} placeLabelSize={zoomSquares / 16} />
+          </>
+        ) : null}
 
-        {/* preserveAspectRatio="slice" shows more world than the square
-            viewBox on the long axis, so the sheet is drawn a viewport wider
-            in every direction rather than exactly on the viewBox. */}
-        {fogOfWar && (
-          <FogOverlay
-            x1={center.x - half * 2}
-            y1={center.y - half * 2}
-            x2={center.x + half * 2}
-            y2={center.y + half * 2}
-          />
-        )}
-
-        {annotations
-          ?.filter((a) => !a.isText)
-          .map((a, i) => (
-            <circle
-              key={`marker-${i}`}
-              cx={a.x}
-              cy={a.y}
-              r={zoomSquares / 90}
-              fill={annotationColor(a)}
-              stroke="white"
-              strokeWidth={zoomSquares / 900}
-            >
-              <title>{a.symbolId}</title>
-            </circle>
-          ))}
-
-        {annotations
-          ?.filter((a) => a.isText)
-          .map((a, i) => (
-            <text
-              key={`note-${i}`}
-              x={a.x}
-              y={a.y}
-              transform={a.rotation ? `rotate(${a.rotation} ${a.x} ${a.y})` : undefined}
-              fontSize={placeLabelSize * 0.8}
-              fill={annotationColor(a)}
-              stroke={BASE_MAP_COLOR}
-              strokeWidth={labelSize / 5}
-              paintOrder="stroke"
-              textAnchor="middle"
-              fontWeight="bold"
-            >
-              {a.text}
-            </text>
-          ))}
-        {vehicle && !position?.inVehicle && (
-          <g transform={`translate(${vehicle.x} ${vehicle.y}) scale(${zoomSquares / 500})`}>
-            <title>{vehicle.name}</title>
-            {smoothedCenter && (
-              // "It's over here": the arrow sits on the player's side of the car
-              // and points back at it, so panning away from either one still
-              // shows which way to walk.
-              <g
-                transform={`rotate(${(Math.atan2(vehicle.x - smoothedCenter.x, smoothedCenter.y - vehicle.y) * 180) / Math.PI}) translate(0 20) rotate(-45)`}
-              >
-                <Navigation
-                  width={14}
-                  height={14}
-                  x={-7}
-                  y={-7}
-                  fill="var(--color-warning)"
-                  color="white"
-                  strokeWidth={1.5}
-                />
-              </g>
-            )}
-            <Car
-              width={24}
-              height={24}
-              x={-12}
-              y={-12}
-              fill="var(--color-warning)"
-              color="white"
-              strokeWidth={1.5}
-            />
-          </g>
-        )}
-
-
-        {routePoints && routePoints.length > 1 && (
-          <polyline
-            points={polygonPoints(routePoints.map((p) => [p.x, p.y]))}
-            fill="none"
-            stroke={ROUTE_COLOR}
-            strokeWidth={zoomSquares / 260}
-            strokeDasharray={routeIsDirect ? `${zoomSquares / 90} ${zoomSquares / 130}` : undefined}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        )}
-
-        {destination && (
-          <circle
-            cx={destination.x}
-            cy={destination.y}
-            r={zoomSquares / 100}
-            fill={ROUTE_COLOR}
-            stroke="white"
-            strokeWidth={zoomSquares / 900}
-          />
-        )}
-
-        {smoothedCenter && (
-          <g
-            transform={`translate(${smoothedCenter.x} ${smoothedCenter.y}) rotate(${headingDeg}) scale(${zoomSquares / 500})`}
-          >
-            <Navigation
-              width={24}
-              height={24}
-              x={-12}
-              y={-12}
-              fill={PIN_COLOR.player}
-              color="white"
-              strokeWidth={1.5}
-            />
-          </g>
-        )}
+        <MapOverlayLayer
+          center={center}
+          zoomSquares={zoomSquares}
+          fogOfWar={fogOfWar}
+          annotations={annotations}
+          vehicle={vehicle}
+          position={position}
+          smoothedCenter={smoothedCenter}
+          headingDeg={headingDeg}
+          routePoints={routePoints}
+          routeIsDirect={routeIsDirect}
+          destination={destination}
+        />
       </svg>
 
       {showMapButtons && manualCenter && (

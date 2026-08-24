@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Codecs, GameFiles } from "../index";
-import { getTilePath } from "./tiles";
+import { getTilePath, getWorldToPixelTransform, worldToTile } from "./tiles";
 
 function memoryFiles(): GameFiles & { store: Map<string, Uint8Array<ArrayBuffer>>; reads: number } {
   const store = new Map<string, Uint8Array<ArrayBuffer>>();
@@ -67,4 +67,31 @@ test("repairs a region at most once for tiles the pyramid never contained", asyn
   await getTilePath(files, codecs, "/install", "/cache", "WP", 9, 9, 8);
   await getTilePath(files, codecs, "/install", "/cache", "WP", 9, 8, 9);
   expect(files.reads).toBe(2);
+});
+
+test("exposes the measured transform and keeps pixel offsets non-negative", () => {
+  const transform = getWorldToPixelTransform("Muldraugh, KY");
+  expect(transform?.scaleX).toBe(0.5);
+  expect(transform?.scaleY).toBe(0.5);
+  expect(transform?.originX).toBe(122);
+  expect(transform?.originY).toBe(123);
+  // Muldraugh's own map.info view center, at the tile it lands on under the
+  // fit scripts/map-alignment.ts measured.
+  const location = worldToTile("Muldraugh, KY", 11181, 9725, 0);
+  expect(location.tileX).toBe(22);
+  expect(location.tileY).toBe(19);
+  expect(location.pixelXInTile).toBeGreaterThanOrEqual(0);
+  expect(location.pixelYInTile).toBeGreaterThanOrEqual(0);
+});
+
+test("halves the whole pixel grid per zoom level, origin included", () => {
+  const TILE_SIZE = 256;
+  const zero = worldToTile("Muldraugh, KY", 11181, 9725, 0);
+  const one = worldToTile("Muldraugh, KY", 11181, 9725, 1);
+  const pixelAt = (location: typeof zero) => ({
+    x: location.tileX * TILE_SIZE + location.pixelXInTile,
+    y: location.tileY * TILE_SIZE + location.pixelYInTile,
+  });
+  expect(pixelAt(one).x).toBeCloseTo(pixelAt(zero).x / 2, 6);
+  expect(pixelAt(one).y).toBeCloseTo(pixelAt(zero).y / 2, 6);
 });

@@ -1,5 +1,9 @@
 {
   "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "map:benchmark": "bun scripts/map-benchmark.ts",
+    "map:alignment": "bun scripts/map-alignment.ts"
+  },
   "dependencies": {},
   "devDependencies": {
     "typescript": "^5"

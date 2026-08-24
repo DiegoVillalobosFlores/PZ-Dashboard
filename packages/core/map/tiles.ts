@@ -132,20 +132,29 @@ export async function getTilePath(files: GameFiles, codecs: Codecs, installDir: 
   return path;
 }
 
-// World-square -> zoom-0 pixel scale, per region. Not derived from an
-// official formula (no decompiled Java available) - empirically calibrated
-// by locating the "Muldraugh" star marker on the actual tile art (measured
-// centroid, pixel 5524.4/4619.5 at zoom 0) against the town's suggested
-// view center from its map info file (zoomX/zoomY 11181/9725 world
-// squares), then cross-checked by converting a live player position near
-// Riverside and confirming it lands inside the "Riverside" label area on
-// the tile art. Origin (0,0 world square = 0,0 pixel) is confirmed by
-// vanilla source (MapSpawnSelect.lua: setBoundsInSquares(0, 0, ...)).
-// ~5% axis-to-axis discrepancy in the calibration fit - good enough to
-// locate the right neighborhood, not pixel-exact.
-const WORLD_TO_PIXEL_SCALE: Record<string, { scaleX: number; scaleY: number }> = {
-  "Muldraugh, KY": { scaleX: 5524.4 / 11181, scaleY: 4619.5 / 9725 },
+// World-square -> zoom-0 pixel transform, per region. Not derived from an
+// official formula (no decompiled Java available) - measured by
+// scripts/map-alignment.ts, which correlates the roads the paper map draws
+// in rust red against the same roads in worldmap.xml over the whole region.
+// The fit is unambiguous: one pixel is exactly two world squares, offset by
+// the map art's border, and per-quadrant refits stay within 2 zoom-0 pixels
+// (4 world squares) of the global fit, so a single affine is enough.
+// Re-run that script before trusting a new region - the earlier
+// single-landmark calibration this replaced scored barely above chance.
+const WORLD_TO_PIXEL_TRANSFORMS: Record<string, WorldToPixelTransform> = {
+  "Muldraugh, KY": { originX: 122, originY: 123, scaleX: 0.5, scaleY: 0.5 },
 };
+
+export type WorldToPixelTransform = {
+  originX: number;
+  originY: number;
+  scaleX: number;
+  scaleY: number;
+};
+
+export function getWorldToPixelTransform(region: string): WorldToPixelTransform | null {
+  return WORLD_TO_PIXEL_TRANSFORMS[region] ?? null;
+}
 
 export type TileLocation = {
   zoom: number;
@@ -159,20 +168,22 @@ export type TileLocation = {
 // a tile + pixel-within-tile at the given zoom, so a frontend can center
 // the map view on the player.
 export function worldToTile(region: string, worldX: number, worldY: number, zoom: number): TileLocation {
-  const calibration = WORLD_TO_PIXEL_SCALE[region];
+  const calibration = WORLD_TO_PIXEL_TRANSFORMS[region];
   if (!calibration) {
     throw new Error(`No coordinate calibration for region "${region}"`);
   }
 
   const zoomScale = 2 ** zoom; // each zoom level halves pixel density vs. zoom 0
-  const pixelX = (worldX * calibration.scaleX) / zoomScale;
-  const pixelY = (worldY * calibration.scaleY) / zoomScale;
+  const pixelX = (calibration.originX + worldX * calibration.scaleX) / zoomScale;
+  const pixelY = (calibration.originY + worldY * calibration.scaleY) / zoomScale;
+  const tileX = Math.floor(pixelX / TILE_SIZE);
+  const tileY = Math.floor(pixelY / TILE_SIZE);
 
   return {
     zoom,
-    tileX: Math.floor(pixelX / TILE_SIZE),
-    tileY: Math.floor(pixelY / TILE_SIZE),
-    pixelXInTile: pixelX % TILE_SIZE,
-    pixelYInTile: pixelY % TILE_SIZE,
+    tileX,
+    tileY,
+    pixelXInTile: pixelX - tileX * TILE_SIZE,
+    pixelYInTile: pixelY - tileY * TILE_SIZE,
   };
 }

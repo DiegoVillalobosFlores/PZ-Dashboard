@@ -33,13 +33,14 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
     pos += 12 + length;
   }
 
-  if (bitDepth !== 8 || colorType !== 6 || interlace !== 0) {
+  if (bitDepth !== 8 || (colorType !== 6 && colorType !== 2) || interlace !== 0) {
     throw new Error(`unsupported PNG (bitDepth ${bitDepth}, colorType ${colorType}, interlace ${interlace})`);
   }
 
+  const channels = colorType === 6 ? 4 : 3;
   const raw = inflateSync(Buffer.concat(parts));
-  const stride = width * 4;
-  const rgba = Buffer.alloc(height * stride);
+  const stride = width * channels;
+  const pixels = Buffer.alloc(height * stride);
 
   let read = 0;
   for (let y = 0; y < height; y++) {
@@ -49,9 +50,9 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
     const rowStart = y * stride;
 
     for (let i = 0; i < stride; i++) {
-      const left = i >= 4 ? rgba[rowStart + i - 4]! : 0;
-      const up = y > 0 ? rgba[rowStart - stride + i]! : 0;
-      const upLeft = y > 0 && i >= 4 ? rgba[rowStart - stride + i - 4]! : 0;
+      const left = i >= channels ? pixels[rowStart + i - channels]! : 0;
+      const up = y > 0 ? pixels[rowStart - stride + i]! : 0;
+      const upLeft = y > 0 && i >= channels ? pixels[rowStart - stride + i - channels]! : 0;
       const value = line[i]!;
 
       let out: number;
@@ -66,10 +67,19 @@ export function decodePng(bytes: Uint8Array): DecodedPng {
         const dUpLeft = Math.abs(estimate - upLeft);
         out = value + (dLeft <= dUp && dLeft <= dUpLeft ? left : dUp <= dUpLeft ? up : upLeft);
       }
-      rgba[rowStart + i] = out & 0xff;
+      pixels[rowStart + i] = out & 0xff;
     }
   }
 
+  if (channels === 4) return { width, height, rgba: pixels };
+
+  const rgba = Buffer.alloc(width * height * 4);
+  for (let source = 0, target = 0; source < pixels.length; source += 3, target += 4) {
+    rgba[target] = pixels[source]!;
+    rgba[target + 1] = pixels[source + 1]!;
+    rgba[target + 2] = pixels[source + 2]!;
+    rgba[target + 3] = 255;
+  }
   return { width, height, rgba };
 }
 

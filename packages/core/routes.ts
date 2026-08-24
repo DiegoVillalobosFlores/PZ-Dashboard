@@ -2,7 +2,7 @@ import type { Codecs, GameFiles } from "./index";
 import { getAllCategories, getCategory } from "./state/store";
 import { writeCommand } from "./state/commands";
 import { renderIcon } from "./icons";
-import { getRegionMeta, getTilePath, listRegions, worldToTile } from "./map/tiles";
+import { getRegionMeta, getTilePath, getWorldToPixelTransform, listRegions, worldToTile } from "./map/tiles";
 import { queryVectorMap } from "./map/vectorMap";
 import { findRoute } from "./map/routing";
 import { resolveModelPath, resolveTexturePath } from "./model/assets";
@@ -18,6 +18,7 @@ export type RouteOptions = {
 };
 
 const IMMUTABLE = { "cache-control": "public, max-age=86400" };
+const TILE_IMMUTABLE = { "cache-control": "public, max-age=31536000, immutable" };
 
 function notFound() {
   return new Response("Not found", { status: 404 });
@@ -105,7 +106,10 @@ export function makeRoutes(files: GameFiles, codecs: Codecs, options: RouteOptio
 
     if (segments.length === 3) {
       try {
-        return Response.json({ region, zoomLevels: await getRegionMeta(files, installDir, region) });
+        return Response.json(
+          { region, zoomLevels: await getRegionMeta(files, installDir, region), worldToPixel: getWorldToPixelTransform(region) },
+          { headers: IMMUTABLE },
+        );
       } catch (err) {
         return new Response(String(err), { status: 404 });
       }
@@ -157,7 +161,7 @@ export function makeRoutes(files: GameFiles, codecs: Codecs, options: RouteOptio
       try {
         const path = await getTilePath(files, codecs, installDir, cacheDir, region, zoom, x, y);
         if (!(await files.stat(path))) return notFound();
-        return new Response(await files.read(path), { headers: { "Content-Type": "image/png" } });
+         return new Response(await files.read(path), { headers: { "Content-Type": "image/png", ...TILE_IMMUTABLE } });
       } catch (err) {
         return new Response(String(err), { status: 404 });
       }
