@@ -141,3 +141,7 @@ rules below target those.
   (`POLL_INTERVAL_MS`/`PZ_POLL_MS`, default 100ms) — `fs.watch` alone silently drops most
   events under the mod's write load and will strand the whole dashboard on
   a minutes-old snapshot. Don't "simplify" the poll away.
+
+## Git
+
+Never create a branch. Commit and push straight to `master`.
