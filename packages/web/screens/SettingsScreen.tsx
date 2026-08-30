@@ -148,24 +148,6 @@ function SectionHeader({ label, onReset }: { label: string; onReset: () => void 
   );
 }
 
-function SubgroupLabel({ children }: { children: Subgroup }) {
-  return (
-    <div
-      style={{
-        padding: '8px 12px 4px',
-        fontSize: 10,
-        fontFamily: 'var(--font-display)',
-        fontWeight: 700,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        color: 'var(--color-text-tertiary)',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 export function SettingsScreen() {
   const isWide = useMediaQuery('(min-width: 900px)');
   const [fogOfWar, setFogOfWar] = useFogOfWar();
@@ -278,12 +260,26 @@ export function SettingsScreen() {
     setConfirmResetAll(false);
   }
 
+  function renderSetting(setting: SettingDescriptor) {
+    return (
+      <SettingRow
+        key={setting.id}
+        title={setting.title}
+        hint={setting.hint}
+        checked={setting.checked}
+        disabled={setting.disabled}
+        onChange={setting.onChange}
+      />
+    );
+  }
+
   return (
     <ScreenModal contentStyle={{ width: isWide ? 780 : '100%', maxWidth: '100%' }}>
       <GlassPanel
         style={{
           width: '100%',
           maxWidth: '100%',
+          height: '100%',
           maxHeight: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -358,20 +354,26 @@ export function SettingsScreen() {
                     onReset={() => section.settings.forEach(({ reset }) => reset())}
                   />
                   <div style={{ display: 'grid', gap: 4 }}>
-                    {section.visibleSettings.map((setting, index) => (
-                      <div key={setting.id} style={{ marginLeft: setting.subgroup ? 12 : 0 }}>
-                        {setting.subgroup && setting.subgroup !== section.visibleSettings[index - 1]?.subgroup && (
-                          <SubgroupLabel>{setting.subgroup}</SubgroupLabel>
-                        )}
-                        <SettingRow
-                          title={setting.title}
-                          hint={setting.hint}
-                          checked={setting.checked}
-                          disabled={setting.disabled}
-                          onChange={setting.onChange}
-                        />
-                      </div>
-                    ))}
+                    {section.id === 'conditions' ? (
+                      <>
+                        {section.visibleSettings.filter((setting) => !setting.subgroup).map(renderSetting)}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: isWide ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)',
+                            gap: 4,
+                          }}
+                        >
+                          {(['Vitals', 'Conditions'] as const).map((group) => (
+                            <div key={group} style={{ display: 'grid', gap: 4 }}>
+                              {section.visibleSettings.filter((setting) => setting.subgroup === group).map(renderSetting)}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      section.visibleSettings.map(renderSetting)
+                    )}
                   </div>
                 </section>
               ))}
