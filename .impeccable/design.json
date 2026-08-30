@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-30T00:00:00.000Z",
+  "title": "Design System: PZ Dashboard",
+  "extensions": {
+    "colorMeta": {
+      "signal-orange": {
+        "role": "primary",
+        "displayName": "Signal Orange",
+        "canonical": "#f76707",
+        "tonalRamp": ["#9e3c00", "#b74700", "#cf5200", "#e85d00", "#f76707", "#ff9f37", "#ffca8c", "#fff3e0"]
+      },
+      "overwatch-black": {
+        "role": "neutral",
+        "displayName": "Overwatch Black",
+        "canonical": "#141517",
+        "tonalRamp": ["#0f1011", "#141517", "#18191c", "#1c1d21", "#25262b", "#2c2e33", "#3a3d42", "#5c5f66"]
+      },
+      "map-grey": {
+        "role": "neutral",
+        "displayName": "Map Grey",
+        "canonical": "#2c2e33",
+        "tonalRamp": ["#141517", "#1c1d21", "#25262b", "#2c2e33", "#3a3d42", "#5c5f66", "#909296", "#c1c2c5"]
+      },
+      "panel-surface": {
+        "role": "neutral",
+        "displayName": "Panel Surface",
+        "canonical": "#25262b",
+        "tonalRamp": ["#0f1011", "#141517", "#1c1d21", "#25262b", "#2c2e33", "#3a3d42", "#5c5f66", "#909296"]
+      },
+      "tile-black": {
+        "role": "neutral",
+        "displayName": "Tile Black",
+        "canonical": "#1a1b1e",
+        "tonalRamp": ["#0f1011", "#141517", "#1a1b1e", "#25262b", "#2c2e33", "#3a3d42", "#5c5f66", "#878a91"]
+      },
+      "tile-equipped": {
+        "role": "primary",
+        "displayName": "Tile Equipped",
+        "canonical": "#2a1a0d",
+        "tonalRamp": ["#150d06", "#2a1a0d", "#452b14", "#6b4220", "#9e3c00", "#cf5200", "#f76707", "#ffca8c"]
+      },
+      "border-default": {
+        "role": "neutral",
+        "displayName": "Border Default",
+        "canonical": "#373a40",
+        "tonalRamp": ["#141517", "#1c1d21", "#25262b", "#2c2e33", "#373a40", "#5c5f66", "#909296", "#c1c2c5"]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Ash Light",
+        "canonical": "#c1c2c5",
+        "tonalRamp": ["#25262b", "#3a3d42", "#5c5f66", "#878a91", "#909296", "#c1c2c5", "#dededf", "#f2f2f3"]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "Ash Mid",
+        "canonical": "#909296",
+        "tonalRamp": ["#1c1d21", "#2c2e33", "#3a3d42", "#5c5f66", "#878a91", "#909296", "#c1c2c5", "#e6e6e8"]
+      },
+      "text-tertiary": {
+        "role": "neutral",
+        "displayName": "Ash Dim",
+        "canonical": "#878a91",
+        "tonalRamp": ["#1c1d21", "#2c2e33", "#3a3d42", "#5c5f66", "#787b82", "#878a91", "#b0b2b7", "#e2e3e5"]
+      },
+      "status-success": {
+        "role": "tertiary",
+        "displayName": "Vital Green",
+        "canonical": "#40c057",
+        "tonalRamp": ["#11331a", "#1a5228", "#237336", "#2f9446", "#40c057", "#69d17c", "#9ce3aa", "#d3f9d8"]
+      },
+      "status-warning": {
+        "role": "tertiary",
+        "displayName": "Vital Amber",
+        "canonical": "#fcc419",
+        "tonalRamp": ["#3d2f00", "#665000", "#8f7000", "#c29700", "#fcc419", "#fdd75c", "#fee79c", "#fff9db"]
+      },
+      "status-danger": {
+        "role": "tertiary",
+        "displayName": "Vital Red",
+        "canonical": "#fa5252",
+        "tonalRamp": ["#3d0f0f", "#661a1a", "#8f2525", "#c23434", "#fa5252", "#fb8080", "#fdb0b0", "#ffe3e3"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Drawer and screen titles only. The largest type in the system; this is a peripheral surface and never needs a hero."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Skill names, settings row titles, panel sub-headings. Sentence case, because these are names rather than labels."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Empty states, tooltip prose, item names, hints. The quietest of the three faces."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "The workhorse. Item-category headings, nav tab labels, slot names, section headers. Uppercase with 0.06-0.1em tracking."
+      },
+      "readout": {
+        "displayName": "Readout",
+        "purpose": "Every number that changes as the game runs: skill levels, trait modifiers, ammo counts, tooltip telemetry."
+      }
+    },
+    "shadows": [
+      {
+        "name": "floating",
+        "value": "0 3px 16px rgba(0, 0, 0, 0.4)",
+        "purpose": "The shadow. Separates the floating HUD layer from the map floor on every panel, tooltip and map button. Never used to rank panels against each other."
+      },
+      {
+        "name": "drawer",
+        "value": "-12px 0 32px rgba(0, 0, 0, 0.4)",
+        "purpose": "Right-edge drawers only, thrown leftward to sell the slide-in."
+      },
+      {
+        "name": "bottom-bar",
+        "value": "0 -3px 16px rgba(0, 0, 0, 0.4)",
+        "purpose": "The mobile nav bar. The floating shadow, inverted."
+      }
+    ],
+    "materials": [
+      {
+        "name": "frost-blur",
+        "value": "blur(10px) saturate(1.1)",
+        "purpose": "The frosted material shared by every floating surface. The map stays visible and slightly saturated through it, which is what makes the layer read as suspended rather than pasted on."
+      },
+      {
+        "name": "glass-panel",
+        "value": "rgba(20, 21, 23, 0.85)",
+        "purpose": "Panel material: Overwatch Black at 85% alpha."
+      },
+      {
+        "name": "glass-drawer",
+        "value": "rgba(20, 21, 23, 0.88)",
+        "purpose": "Drawer material, held a little denser so its readouts stay legible over a busy map."
+      },
+      {
+        "name": "glass-inset",
+        "value": "rgba(255, 255, 255, 0.06)",
+        "purpose": "Inset fill for item cells inside a glass panel."
+      }
+    ],
+    "accentAlphas": [
+      { "name": "accent-fill-weak", "value": "rgba(247, 103, 7, 0.16)", "purpose": "Passive highlight." },
+      { "name": "accent-fill-medium", "value": "rgba(247, 103, 7, 0.22)", "purpose": "Active selection and drag targets." },
+      { "name": "accent-border-weak", "value": "rgba(247, 103, 7, 0.3)", "purpose": "Weakest accent outline." },
+      { "name": "accent-border-medium", "value": "rgba(247, 103, 7, 0.4)", "purpose": "Mid accent outline." },
+      { "name": "accent-border-strong", "value": "rgba(247, 103, 7, 0.7)", "purpose": "Selected item cell border." }
+    ],
+    "motion": [
+      {
+        "name": "drawer-slide",
+        "value": "slide-left 200ms",
+        "purpose": "Right-edge drawer entry and exit. The only scripted transition in the shell."
+      },
+      {
+        "name": "fade",
+        "value": "opacity 240ms ease",
+        "purpose": "Map layer and overlay cross-fades."
+      },
+      {
+        "name": "marker-ease",
+        "value": "rAF interpolation between 0.5s position fixes",
+        "purpose": "The character marker glides between streamed fixes instead of teleporting. Not a CSS transition; MapCanvas eases it per frame."
+      }
+    ],
+    "breakpoints": [
+      { "name": "wide", "value": "900px" }
+    ],
+    "shellInsets": [
+      { "name": "--hud-top-inset", "value": "88px wide / 76px compact", "purpose": "Clearance for the vitals condition cluster." },
+      { "name": "--hud-left-inset", "value": "112px wide / 12px compact", "purpose": "Clearance for the left nav rail." },
+      { "name": "--hud-right-inset", "value": "80px wide / 12px compact", "purpose": "Clearance for the floating map buttons; compact hides them." },
+      { "name": "--hud-hotbar-inset", "value": "measured at runtime", "purpose": "ResizeObserver on the hotbar, because it reflows between one and two rows." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Nav Tile (wide)",
+      "kind": "nav",
+      "refersTo": "nav-tile-wide",
+      "description": "72px square tile in the left rail. Carries the frosted glass itself, since the rail sits straight on the map with no panel behind it.",
+      "html": "<div class=\"ds-nav-rail\"><button class=\"ds-nav-tile ds-nav-tile--active\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/></svg><span class=\"ds-nav-key\">1</span></button><button class=\"ds-nav-tile\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 9V7a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v2\"/><rect x=\"3\" y=\"9\" width=\"18\" height=\"11\" rx=\"1\"/><path d=\"M9 13h6\"/></svg><span class=\"ds-nav-key\">2</span></button></div>",
+      "css": ".ds-nav-rail { display: flex; flex-direction: column; gap: 16px; } .ds-nav-tile { position: relative; width: 72px; height: 72px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(20, 21, 23, 0.85); backdrop-filter: blur(10px) saturate(1.1); color: #909296; border: none; border-radius: 2px; padding: 0; cursor: pointer; } .ds-nav-tile--active { background: #f76707; opacity: 0.85; color: #ffffff; } .ds-nav-key { position: absolute; top: 5px; right: 7px; font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 10px; color: #878a91; } .ds-nav-tile--active .ds-nav-key { color: #ffffff; } .ds-nav-tile:hover { background: rgba(20, 21, 23, 0.95); } .ds-nav-tile--active:hover { background: #f76707; opacity: 1; } .ds-nav-tile:focus-visible { outline: 2px solid #f76707; outline-offset: 2px; }"
+    },
+    {
+      "name": "Nav Tab (mobile)",
+      "kind": "nav",
+      "refersTo": "nav-tab-mobile",
+      "description": "Full-width 60px bottom tab bar. Real thumb reach beats a corner rail, and it clears the entire top edge for the vitals cluster.",
+      "html": "<nav class=\"ds-tabbar\"><button class=\"ds-tab ds-tab--active\"><span class=\"ds-tab-mark\"></span><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/></svg><span class=\"ds-tab-label\">Map</span></button><button class=\"ds-tab\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 9V7a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v2\"/><rect x=\"3\" y=\"9\" width=\"18\" height=\"11\" rx=\"1\"/></svg><span class=\"ds-tab-label\">Inventory</span></button><button class=\"ds-tab\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 20s-7-4.5-7-9.5A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 7 2.5C19 15.5 12 20 12 20Z\"/></svg><span class=\"ds-tab-label\">Health</span></button></nav>",
+      "css": ".ds-tabbar { display: flex; background: rgba(20, 21, 23, 0.85); backdrop-filter: blur(10px) saturate(1.1); box-shadow: 0 -3px 16px rgba(0, 0, 0, 0.4); border-top: 1px solid #373a40; } .ds-tab { position: relative; flex: 1 1 0; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: transparent; color: #909296; border: none; padding: 0; cursor: pointer; } .ds-tab--active { color: #f76707; } .ds-tab-mark { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 28px; height: 2px; background: #f76707; } .ds-tab-label { font-family: 'Chakra Petch', Inter, system-ui, sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #878a91; } .ds-tab--active .ds-tab-label { color: #f76707; } .ds-tab:focus-visible { outline: 2px solid #f76707; outline-offset: -2px; }"
+    },
+    {
+      "name": "HUD Icon Button",
+      "kind": "button",
+      "refersTo": "hud-icon-button",
+      "description": "44px map control (recentre, map notes). Opaque, not glass, because it sits alone on the map and needs to hold its own edge.",
+      "html": "<button class=\"ds-hud-btn\" aria-label=\"Map notes\"><span class=\"ds-bracket ds-bracket--tl\"></span><span class=\"ds-bracket ds-bracket--tr\"></span><span class=\"ds-bracket ds-bracket--bl\"></span><span class=\"ds-bracket ds-bracket--br\"></span><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#f76707\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/></svg></button>",
+      "css": ".ds-hud-btn { position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: #141517; border: none; border-radius: 2px; box-shadow: 0 3px 16px rgba(0, 0, 0, 0.4); padding: 0; cursor: pointer; } .ds-bracket { position: absolute; pointer-events: none; opacity: 0.85; } .ds-bracket::before, .ds-bracket::after { content: ''; position: absolute; background: #f76707; } .ds-bracket::before { width: 2px; height: 10px; } .ds-bracket::after { width: 10px; height: 2px; } .ds-bracket--tl { top: 3px; left: 3px; } .ds-bracket--tl::before, .ds-bracket--tl::after { top: 0; left: 0; } .ds-bracket--tr { top: 3px; right: 3px; } .ds-bracket--tr::before, .ds-bracket--tr::after { top: 0; right: 0; } .ds-bracket--bl { bottom: 3px; left: 3px; } .ds-bracket--bl::before, .ds-bracket--bl::after { bottom: 0; left: 0; } .ds-bracket--br { bottom: 3px; right: 3px; } .ds-bracket--br::before, .ds-bracket--br::after { bottom: 0; right: 0; } .ds-hud-btn:hover .ds-bracket { opacity: 1; } .ds-hud-btn:focus-visible { outline: 2px solid #f76707; outline-offset: 2px; }"
+    },
+    {
+      "name": "Glass Panel",
+      "kind": "card",
+      "refersTo": "glass-panel",
+      "description": "The floating surface every screen is built on. Frosted Overwatch Black over the map, one shadow, optional corner brackets instead of a border.",
+      "html": "<div class=\"ds-panel\"><span class=\"ds-panel-bracket ds-panel-bracket--tl\"></span><span class=\"ds-panel-bracket ds-panel-bracket--tr\"></span><span class=\"ds-panel-bracket ds-panel-bracket--bl\"></span><span class=\"ds-panel-bracket ds-panel-bracket--br\"></span><span class=\"ds-panel-title\">Equipment</span><p class=\"ds-panel-body\">Frosted at 85% over the map, with backdrop blur so the world stays visible through it.</p></div>",
+      "css": ".ds-panel { position: relative; background: rgba(20, 21, 23, 0.85); backdrop-filter: blur(10px) saturate(1.1); border-radius: 2px; box-shadow: 0 3px 16px rgba(0, 0, 0, 0.4); padding: 18px; min-width: 260px; } .ds-panel-bracket { position: absolute; pointer-events: none; opacity: 0.85; } .ds-panel-bracket::before, .ds-panel-bracket::after { content: ''; position: absolute; background: #f76707; } .ds-panel-bracket::before { width: 2px; height: 14px; } .ds-panel-bracket::after { width: 14px; height: 2px; } .ds-panel-bracket--tl { top: 6px; left: 6px; } .ds-panel-bracket--tl::before, .ds-panel-bracket--tl::after { top: 0; left: 0; } .ds-panel-bracket--tr { top: 6px; right: 6px; } .ds-panel-bracket--tr::before, .ds-panel-bracket--tr::after { top: 0; right: 0; } .ds-panel-bracket--bl { bottom: 6px; left: 6px; } .ds-panel-bracket--bl::before, .ds-panel-bracket--bl::after { bottom: 0; left: 0; } .ds-panel-bracket--br { bottom: 6px; right: 6px; } .ds-panel-bracket--br::before, .ds-panel-bracket--br::after { bottom: 0; right: 0; } .ds-panel-title { display: block; font-family: 'Chakra Petch', Inter, system-ui, sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #c1c2c5; margin-bottom: 10px; } .ds-panel-body { margin: 0; font-family: Inter, system-ui, sans-serif; font-size: 13px; line-height: 1.4; color: #909296; }"
+    },
+    {
+      "name": "Equipment Tile",
+      "kind": "custom",
+      "refersTo": "equip-tile",
+      "description": "The one tile every equipped item is drawn as. Corner brackets mean the slot is filled; the lit background means the item is in hand right now.",
+      "html": "<div class=\"ds-tile-row\"><button class=\"ds-tile ds-tile--active\"><span class=\"ds-tile-bracket ds-tile-bracket--tl\"></span><span class=\"ds-tile-bracket ds-tile-bracket--tr\"></span><span class=\"ds-tile-bracket ds-tile-bracket--bl\"></span><span class=\"ds-tile-bracket ds-tile-bracket--br\"></span><span class=\"ds-tile-badge\">1</span><svg width=\"27\" height=\"27\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#c1c2c5\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.5 3.5 20 9l-9.5 9.5H5v-5.5Z\"/><path d=\"m3 21 4-4\"/></svg><span class=\"ds-tile-cond\"></span></button><button class=\"ds-tile\"><span class=\"ds-tile-badge\">2</span></button></div>",
+      "css": ".ds-tile-row { display: flex; gap: 6px; } .ds-tile { position: relative; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; background: #1a1b1e; border: none; border-radius: 2px; padding: 0; cursor: pointer; } .ds-tile--active { background: #2a1a0d; } .ds-tile-bracket { position: absolute; pointer-events: none; opacity: 0.85; } .ds-tile-bracket::before, .ds-tile-bracket::after { content: ''; position: absolute; background: #f76707; } .ds-tile-bracket::before { width: 2px; height: 10px; } .ds-tile-bracket::after { width: 10px; height: 2px; } .ds-tile-bracket--tl { top: 3px; left: 3px; } .ds-tile-bracket--tl::before, .ds-tile-bracket--tl::after { top: 0; left: 0; } .ds-tile-bracket--tr { top: 3px; right: 3px; } .ds-tile-bracket--tr::before, .ds-tile-bracket--tr::after { top: 0; right: 0; } .ds-tile-bracket--bl { bottom: 3px; left: 3px; } .ds-tile-bracket--bl::before, .ds-tile-bracket--bl::after { bottom: 0; left: 0; } .ds-tile-bracket--br { bottom: 3px; right: 3px; } .ds-tile-bracket--br::before, .ds-tile-bracket--br::after { bottom: 0; right: 0; } .ds-tile-badge { position: absolute; top: 4px; left: 4px; width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 10px; color: #878a91; } .ds-tile-cond { position: absolute; bottom: 6px; left: 7px; right: 7px; height: 3px; background: #40c057; } .ds-tile:hover { outline: 1px solid rgba(247, 103, 7, 0.4); } .ds-tile:focus-visible { outline: 2px solid #f76707; outline-offset: 2px; } .ds-tile:disabled { opacity: 0.55; cursor: default; }"
+    },
+    {
+      "name": "Item Cell",
+      "kind": "chip",
+      "refersTo": "item-cell",
+      "description": "The grid cell every inventory and container item is drawn as. Selection swaps the neutral stroke for a Signal Orange border over the 0.22 accent fill.",
+      "html": "<div class=\"ds-cell-grid\"><button class=\"ds-cell ds-cell--selected\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#c1c2c5\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 8h14l-1.2 11a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8Z\"/><path d=\"M9 8V6a3 3 0 0 1 6 0v2\"/></svg><span class=\"ds-cell-name\">Water Bottle</span></button><button class=\"ds-cell\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#c1c2c5\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.5 3.5 20 9l-9.5 9.5H5v-5.5Z\"/></svg><span class=\"ds-cell-name\">Hammer</span></button></div>",
+      "css": ".ds-cell-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; } .ds-cell { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; min-height: 92px; padding: 8px 4px 6px; border-radius: 2px; border: 1px solid #373a40; background: rgba(255, 255, 255, 0.06); color: #c1c2c5; font-family: Inter, system-ui, sans-serif; font-size: 11px; cursor: pointer; } .ds-cell--selected { border-color: rgba(247, 103, 7, 0.7); background: rgba(247, 103, 7, 0.22); } .ds-cell-name { text-align: center; line-height: 1.2; } .ds-cell:hover { border-color: rgba(247, 103, 7, 0.4); } .ds-cell:focus-visible { outline: 2px solid #f76707; outline-offset: 2px; }"
+    },
+    {
+      "name": "Category Heading",
+      "kind": "custom",
+      "refersTo": "category-heading",
+      "description": "Every item list in the product is grouped by the game's own item category under one of these, with an All/None toggle on the right.",
+      "html": "<button class=\"ds-cat\"><span>Water Container</span><span class=\"ds-cat-toggle\">All</span></button>",
+      "css": ".ds-cat { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 16px 6px; background: none; border: none; cursor: pointer; text-align: left; font-family: 'Chakra Petch', Inter, system-ui, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #f76707; } .ds-cat-toggle { color: #878a91; } .ds-cat:hover .ds-cat-toggle { color: #c1c2c5; } .ds-cat:focus-visible { outline: 2px solid #f76707; outline-offset: -2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Mantine TextInput on theme defaults. Inputs appear only on the Settings screen; the rest of the product is tiles and toggles.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Filter settings\" aria-label=\"Filter settings\" />",
+      "css": ".ds-input { width: 100%; height: 36px; padding: 0 12px; background: #25262b; border: 1px solid #373a40; border-radius: 2px; color: #c1c2c5; font-family: Inter, system-ui, sans-serif; font-size: 13px; } .ds-input::placeholder { color: #878a91; } .ds-input:hover { border-color: #5c5f66; } .ds-input:focus { outline: none; border-color: #f76707; }"
+    },
+    {
+      "name": "Tooltip",
+      "kind": "custom",
+      "refersTo": "tooltip",
+      "description": "Carries the full explanation of every vital and condition, so the pill itself can stay a bare number.",
+      "html": "<div class=\"ds-tooltip\">Panic — fear level. Reduces weapon accuracy and critical hit chance. (18%)</div>",
+      "css": ".ds-tooltip { max-width: 300px; padding: 8px 12px; background: rgba(20, 21, 23, 0.85); backdrop-filter: blur(10px) saturate(1.1); border: 1px solid #373a40; border-radius: 2px; box-shadow: 0 3px 16px rgba(0, 0, 0, 0.4); color: #c1c2c5; font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 12px; line-height: 1.5; white-space: normal; }"
+    },
+    {
+      "name": "Skill Readout",
+      "kind": "custom",
+      "refersTo": "readout",
+      "description": "The pairing that defines the type system: a Chakra Petch name against a Share Tech Mono value in Signal Orange.",
+      "html": "<div class=\"ds-skill\"><span class=\"ds-skill-name\">Carpentry</span><span class=\"ds-skill-level\">3/10</span></div>",
+      "css": ".ds-skill { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 180px; padding: 6px 8px; background: #1a1b1e; border: 1px solid #373a40; border-radius: 2px; } .ds-skill-name { font-family: 'Chakra Petch', Inter, system-ui, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; line-height: 1.25; color: #c1c2c5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-skill-level { flex-shrink: 0; font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 12px; font-weight: 700; color: #f76707; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Glass Overwatch",
+    "overview": "The dashboard is not a screen the player visits. It is a layer of dark glass suspended above the world of Knox County, and the world never goes away underneath it. The map is the floor of the entire product - it is mounted before any screen and stays mounted through every navigation, keeping its pan, its zoom and the eased glide of the character marker. Everything else in the system is a pane of frosted, near-opaque glass that floats over that floor, casts a single soft shadow onto it, and can be dismissed to reveal it again. Nothing ever fills the viewport; nothing ever pretends the map is not still there.\n\nThe posture is observational, not conversational. The player's eyes are in the game; this surface is read in glances, at arm's length, from a handheld sitting beside the keyboard or a second monitor across the desk. So the system is built out of readouts rather than content: monospaced telemetry, uppercase display-face labels, hard 2px corners, tiles sized between 44px and 84px so a thumb finds them without aiming. Depth is carried by material - translucency and blur - not by an elevation ladder, because ranking panels against each other implies a hierarchy of attention the player does not have to spare. A pane is either glass over the world, or it is an opaque slot punched into that glass. There is no third state.\n\nColour is rationed to exactly one voice. Signal Orange marks what is live, held, selected or currently yours; the rest of the palette is a cold blue-grey ash that stays out of the way. Vitals borrow the only other colours in the system - green, amber, red - and only to report a number that has crossed a threshold. Rejected outright: any imitation of vanilla Project Zomboid's brown parchment panels and pixel typeface (the dashboard belongs beside the game, not inside it), and any decorative gaming treatment - neon glow, scanlines, glitch, animated gradient. A readout stays a readout.",
+    "keyCharacteristics": [
+      "A persistent map floor; floating glass panes that never fill the viewport",
+      "One accent - Signal Orange - reserved for live, held or selected state",
+      "2px corners everywhere; no softness, no gradients, no elevation ramp",
+      "Targeting-reticle corner brackets instead of borders on HUD surfaces",
+      "Uppercase Chakra Petch labels over Share Tech Mono numeric readouts",
+      "Touch targets from 44px to 84px, tuned for handheld arm's length",
+      "Two layouts, one breakpoint: 900px separates wide from compact"
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "Signal Orange means live, held, or selected. If an element is not reporting current game state or the player's current choice, it does not get the accent - it gets Ash. A screen where the accent appears on more than a handful of elements has lost its meaning.",
+        "section": "colors"
+      },
+      {
+        "name": "The Threshold Rule",
+        "body": "Green, amber and red are computed from a value crossing a threshold (healthColor, vitalColor), never chosen by hand. If you are typing #fa5252 into a component, you are decorating with an alarm colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Numbers Are Mono Rule",
+        "body": "Any value that changes as the game runs is set in Share Tech Mono. A number in Inter is a bug - it will jitter as the digit widths change under it.",
+        "section": "typography"
+      },
+      {
+        "name": "The Labels Shout, The Data Speaks Rule",
+        "body": "Chrome - category names, slot names, section headers - is uppercase Chakra Petch with tracking. Content - item names, values, prose - is never uppercased. Never invert this to give a piece of content emphasis.",
+        "section": "typography"
+      },
+      {
+        "name": "The Map Never Goes Away Rule",
+        "body": "No screen is full-bleed and no screen is opaque edge-to-edge. Every screen composes inside --hud-*-inset and lets the world show around it. A layout that covers the map has stopped being a HUD.",
+        "section": "layout"
+      },
+      {
+        "name": "The Insets Are The Contract Rule",
+        "body": "Never hardcode a margin to clear the nav rail, the vitals pill or the hotbar. Read the shell's custom properties - the hotbar one is measured at runtime and your constant will be wrong the moment it reflows.",
+        "section": "layout"
+      },
+      {
+        "name": "The One Shadow Rule",
+        "body": "0 3px 16px rgba(0,0,0,0.4) is the shadow. The other two are the same shadow pointed a different direction. Inventing a fourth means you are building an elevation ramp this system deliberately does not have.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Opaque Slot Rule",
+        "body": "Anything that holds an item - hotbar slot, hand widget, paperdoll tile - is opaque #1a1b1e, never glass. Blur it and the slot dissolves into the pane behind it and the player loses the boundary they aim at.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Sharp Corner Rule",
+        "body": "2px. If a new surface wants 8px because it looks friendlier, the answer is no - the squared geometry is what makes the type face and the brackets cohere.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Brackets Mean Occupied Rule",
+        "body": "On any slot, corner brackets mean the slot holds something and a lit #2a1a0d background means it is in hand right now. These two marks mean the same thing in the hotbar, the hand widget and the paperdoll. Do not reuse brackets for hover, focus or emphasis.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do compose every screen inside --hud-top-inset, --hud-left-inset, --hud-right-inset and --hud-hotbar-inset rather than hardcoding clearance. The hotbar inset is measured at runtime.",
+      "Do use --radius-sharp (2px) for every new surface, and --frost-blur for anything that floats over the map.",
+      "Do reach for GlassPanel and CornerBrackets before writing a new floating surface; the frosted material and the bracket frame are already one decision.",
+      "Do set every changing number in var(--font-mono) and every label in uppercase var(--font-display) with 0.06-0.1em tracking.",
+      "Do derive status colour from healthColor() / vitalColor() / conditionColor() so a threshold is computed, not eyeballed.",
+      "Do branch layout on the single 900px breakpoint, and pass wide / compact down as a prop where a parent already knows it.",
+      "Do keep touch targets at 44px or above - 44px map buttons, 52-84px tiles, 60px mobile tabs, 72px nav tiles - this is read at arm's length on a handheld.",
+      "Do distinguish off, stale, and never-received state visually; keep the last known reading visible and dimmed rather than blanking the panel."
+    ],
+    "donts": [
+      "Don't soften a corner past 2px. There is no 8px card in this system.",
+      "Don't add a fourth shadow or build an elevation ramp. One Floating shadow, plus its two rotations for drawers and the bottom bar.",
+      "Don't blur an item slot. Slots are opaque #1a1b1e (or #2a1a0d when in hand) so their boundary survives a busy map behind them.",
+      "Don't spend Signal Orange on anything that is not live, held or selected. It is the only voice in the palette and its rarity is what makes it readable at a glance.",
+      "Don't reuse corner brackets for hover, focus or emphasis. On a slot they mean occupied, and that meaning has to hold in all three tile variants.",
+      "Don't imitate vanilla Project Zomboid's brown parchment panels or pixel typeface. The dashboard sits beside the game, not inside it.",
+      "Don't add neon glow, scanlines, glitch effects, animated gradients or RGB cycling. Readouts stay readouts.",
+      "Don't let a screen cover the map edge to edge, or unmount the shell to get more room.",
+      "Don't uppercase content to give it emphasis - uppercase belongs to chrome only."
+    ]
+  }
+}
