@@ -60,6 +60,9 @@ const MIN_ZOOM_SQUARES = 12;
 const MAX_ZOOM_SQUARES = 12000;
 
 const FAST_TRAVEL_SQUARES_PER_SECOND = 8;
+const SLOW_TRAVEL_SQUARES_PER_SECOND = 4;
+const SPEED_SMOOTHING = 0.12;
+const ZOOM_ANIMATION_MS = 700;
 const TRAVEL_ZOOM_SQUARES = 720;
 
 function clamp(value: number, min: number, max: number): number {
@@ -98,7 +101,7 @@ function useFixMotion(target: WorldPoint | null): { point: WorldPoint | null; sp
       }
 
       const { point: next, settled } = interpolateMotion(track, nowMs);
-      const nextSpeed = motionSpeed(track, nowMs);
+      const nextSpeed = speedRef.current + (motionSpeed(track, nowMs) - speedRef.current) * SPEED_SMOOTHING;
 
       if (!pointRef.current || pointRef.current.x !== next.x || pointRef.current.y !== next.y) {
         pointRef.current = next;
@@ -109,7 +112,7 @@ function useFixMotion(target: WorldPoint | null): { point: WorldPoint | null; sp
         setSpeed(nextSpeed);
       }
 
-      if (settled && nextSpeed === 0) {
+      if (settled && nextSpeed < 0.05) {
         frameRef.current = 0;
         return;
       }
@@ -222,16 +225,20 @@ export function MapCanvas({
   const wantsRaster = zoomSquares >= BROAD_VIEW_ZOOM_SQUARES - 1;
 
   const [autoZoomOnSpeed] = useAutoZoomOnSpeed();
-  const isTravellingFast = motion.speed >= FAST_TRAVEL_SQUARES_PER_SECOND;
+  const [isTravellingFast, setIsTravellingFast] = useState(false);
+
+  useEffect(() => {
+    setIsTravellingFast((wasFast) =>
+      motion.speed >= (wasFast ? SLOW_TRAVEL_SQUARES_PER_SECOND : FAST_TRAVEL_SQUARES_PER_SECOND),
+    );
+  }, [motion.speed]);
 
   useEffect(() => {
     if (autoZoomOnSpeed && isTravellingFast) {
       if (autoZoomActiveRef.current || autoZoomSuppressedRef.current) return;
       autoZoomActiveRef.current = true;
       preAutoZoomRef.current = zoomRef.current;
-      setZoomSquares((current) =>
-        clamp(Math.max(current, TRAVEL_ZOOM_SQUARES), MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES),
-      );
+      animateZoomTo(Math.max(zoomRef.current, TRAVEL_ZOOM_SQUARES));
       return;
     }
 
@@ -244,8 +251,10 @@ export function MapCanvas({
     autoZoomSuppressedRef.current = false;
     const restore = preAutoZoomRef.current;
     preAutoZoomRef.current = null;
-    if (restore !== null) setZoomSquares(clamp(restore, MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES));
+    if (restore !== null) animateZoomTo(restore);
   }, [autoZoomOnSpeed, isTravellingFast]);
+
+  useEffect(() => () => stopZoomAnimation(), []);
 
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const centerRef = useRef(center);
@@ -257,6 +266,7 @@ export function MapCanvas({
   const preAutoZoomRef = useRef<number | null>(null);
   const autoZoomActiveRef = useRef(false);
   const autoZoomSuppressedRef = useRef(false);
+  const zoomAnimRef = useRef(0);
   const fetchedBoundsRef = useRef<{ region: string; x1: number; y1: number; x2: number; y2: number } | null>(null);
 
   const tileState = useMapTiles(mapMeta, {
@@ -313,7 +323,36 @@ export function MapCanvas({
     };
   }, [region, assetRevision]);
 
+  function stopZoomAnimation() {
+    if (!zoomAnimRef.current) return;
+    cancelAnimationFrame(zoomAnimRef.current);
+    zoomAnimRef.current = 0;
+  }
+
+  function animateZoomTo(target: number) {
+    stopZoomAnimation();
+    const from = zoomRef.current;
+    const to = clamp(target, MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES);
+    if (Math.abs(Math.log(to / from)) < 0.02) {
+      setZoomSquares(to);
+      return;
+    }
+    const startedAt = performance.now();
+    const step = (nowMs: number) => {
+      const t = Math.min(1, (nowMs - startedAt) / ZOOM_ANIMATION_MS);
+      const eased = t * t * (3 - 2 * t);
+      setZoomSquares(t >= 1 ? to : from * Math.pow(to / from, eased));
+      if (t >= 1) {
+        zoomAnimRef.current = 0;
+        return;
+      }
+      zoomAnimRef.current = requestAnimationFrame(step);
+    };
+    zoomAnimRef.current = requestAnimationFrame(step);
+  }
+
   function suppressAutoZoom() {
+    stopZoomAnimation();
     if (!autoZoomActiveRef.current) return;
     autoZoomActiveRef.current = false;
     preAutoZoomRef.current = null;
