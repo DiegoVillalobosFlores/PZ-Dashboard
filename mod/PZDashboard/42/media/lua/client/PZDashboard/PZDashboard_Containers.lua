@@ -25,6 +25,16 @@ local function itemIcon(item, label)
     return icon or ""
 end
 
+local function containerIcon(container, fallback, label)
+    return safe(function()
+        local icons = ContainerButtonIcons
+        local texture = icons and icons[container:getType()]
+        local name = texture and texture:getName()
+        if not name then return fallback end
+        return (name:gsub(".*[/\\]", ""):gsub("%.png$", ""))
+    end, fallback, label)
+end
+
 local function subInventory(item)
     if not instanceof(item, "InventoryContainer") then return nil end
     return safe(function() return item:getInventory() end, nil, "containers.bagInventory")
@@ -120,7 +130,7 @@ function PZDashboard.Containers.enumerate(player)
                             kind = "object",
                             name = containerName(container, safe(function() return object:getName() end, "Container", "containers.objectName")),
                             type = safe(function() return container:getType() end, "", "containers.objectType"),
-                            icon = "",
+                            icon = containerIcon(container, "Container_Shelf", "containers.objectIcon"),
                             x = sx, y = sy, z = sz,
                             locked = instanceof(object, "IsoThumpable") and safe(function() return object:isLocked() end, false, "containers.objectLocked") == true,
                             container = container,
@@ -139,7 +149,7 @@ function PZDashboard.Containers.enumerate(player)
                                 kind = "deadBody",
                                 name = safe(function() return getText("ContextMenu_Corpse") end, "Corpse", "containers.bodyName"),
                                 type = "deadBody",
-                                icon = "",
+                                icon = containerIcon(container, "Container_DeadPerson_Male", "containers.bodyIcon"),
                                 x = sx, y = sy, z = sz,
                                 locked = false,
                                 container = container,
@@ -182,7 +192,7 @@ function PZDashboard.Containers.enumerate(player)
         kind = "floor",
         name = safe(function() return getTextOrNull("ContextMenu_Floor") end, nil, "containers.floorName") or "Floor",
         type = "floor",
-        icon = "",
+        icon = "Container_Floor",
         x = px, y = py, z = pz,
         locked = false,
         container = nil,

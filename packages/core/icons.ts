@@ -175,7 +175,16 @@ export async function renderIcon(files: GameFiles, codecs: Codecs, installDir: s
   if (cached) return cached;
 
   const entry = (await getIndex(files, installDir)).get(name);
-  if (!entry) return null;
+  if (!entry) {
+    for (const dir of ["ui", "textures"]) {
+      const loose = await files.read(joinPath(installDir, "media", dir, `${name}.png`)).catch(() => null);
+      if (!loose) continue;
+      renderCache.set(renderedKey, loose);
+      if (cachePath) await files.write(cachePath, loose).catch(() => undefined);
+      return loose;
+    }
+    return null;
+  }
 
   const page = await getPage(files, codecs, entry, cacheDir);
   const width = Math.min(entry.w, page.width - entry.x);
