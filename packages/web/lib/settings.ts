@@ -1,11 +1,17 @@
 import { useLocalStorage } from '@mantine/hooks';
 
+export const DEFAULT_FOG_OF_WAR = true;
+export const DEFAULT_SHOW_TRAITS = true;
+export const DEFAULT_SHOW_SUMMARY = true;
+export const DEFAULT_AUTO_ZOOM_ON_SPEED = false;
+export const DEFAULT_AUTO_ROTATE = true;
+
 // Mantine's hook syncs every subscriber in the tab, so the Settings screen and
 // the map read the same value without a provider.
 export function useFogOfWar() {
   return useLocalStorage({
     key: 'pz-dashboard.fogOfWar',
-    defaultValue: true,
+    defaultValue: DEFAULT_FOG_OF_WAR,
     getInitialValueInEffect: false,
   });
 }
@@ -13,7 +19,7 @@ export function useFogOfWar() {
 export function useShowTraits() {
   return useLocalStorage({
     key: 'pz-dashboard.showTraits',
-    defaultValue: true,
+    defaultValue: DEFAULT_SHOW_TRAITS,
     getInitialValueInEffect: false,
   });
 }
@@ -21,7 +27,7 @@ export function useShowTraits() {
 export function useShowSummary() {
   return useLocalStorage({
     key: 'pz-dashboard.showSummary',
-    defaultValue: true,
+    defaultValue: DEFAULT_SHOW_SUMMARY,
     getInitialValueInEffect: false,
   });
 }
@@ -70,7 +76,7 @@ export function useConditionClusterSettings() {
 export function useAutoZoomOnSpeed() {
   return useLocalStorage({
     key: 'pz-dashboard.autoZoomOnSpeed',
-    defaultValue: false,
+    defaultValue: DEFAULT_AUTO_ZOOM_ON_SPEED,
     getInitialValueInEffect: false,
   });
 }
@@ -78,7 +84,13 @@ export function useAutoZoomOnSpeed() {
 export function useAutoRotate() {
   return useLocalStorage({
     key: 'pz-dashboard.autoRotate',
-    defaultValue: true,
+    defaultValue: DEFAULT_AUTO_ROTATE,
     getInitialValueInEffect: false,
   });
+}
+
+export function settingMatchesFilter(title: string, hint: string | undefined, filter: string): boolean {
+  const normalizedFilter = filter.trim().toLowerCase();
+  if (!normalizedFilter) return true;
+  return `${title} ${hint ?? ''}`.toLowerCase().includes(normalizedFilter);
 }
