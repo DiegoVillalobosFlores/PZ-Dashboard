@@ -14,7 +14,7 @@ const TOOLTIP_STYLES = {
     border: '1px solid var(--color-border)',
     backdropFilter: 'var(--frost-blur)',
     borderRadius: 'var(--radius-sharp)',
-    boxShadow: '0 3px 16px rgba(0, 0, 0, 0.4)',
+    boxShadow: 'var(--shadow-float)',
     color: 'var(--color-text-primary)',
     fontSize: 12,
     fontFamily: 'var(--font-mono)',
@@ -191,7 +191,7 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
     >
       <span style={{ color: 'var(--color-accent)' }}>{String(world.hour).padStart(2, '0')}:{String(world.minute).padStart(2, '0')}</span>
       <span>DAY {Math.floor(world.hoursSurvived / 24) + 1}</span>
-      <span>{world.day + 1}/{world.month + 1}</span>
+      {!compact && <span>{world.day + 1}/{world.month + 1}</span>}
       <span>{Math.round(world.temperature)}°</span>
     </div>
   ) : null;
@@ -200,7 +200,9 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
     settings.hunger && <MiniVital key="hunger" name="hunger" icon="drumstick" value={vitals.hunger} compact={compact} />,
     settings.thirst && <MiniVital key="thirst" name="thirst" icon="droplet" value={vitals.thirst} compact={compact} />,
     settings.fatigue && <MiniVital key="fatigue" name="fatigue" icon="moon" value={vitals.fatigue} compact={compact} />,
-    settings.stamina && <MiniVital key="stamina" name="stamina" icon="zap" value={vitals.stamina} compact={compact} />,
+    settings.stamina && (!compact || vitals.stamina < 100) && (
+      <MiniVital key="stamina" name="stamina" icon="zap" value={vitals.stamina} compact={compact} />
+    ),
   ].filter(Boolean);
 
   const condItems = conditions
@@ -224,14 +226,17 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
 
   const compactCondItems = conditions
     ? [
-        settings.stress && (
+        settings.stress && conditions.stress > 0 && (
           <MiniCond key="stress" name="stress" icon="brain" value={conditions.stress} compact={compact} severe={conditions.stress > 60} />
         ),
-        settings.panic && (
+        settings.panic && conditions.panic > 0 && (
           <MiniCond key="panic" name="panic" icon="alert-triangle" value={conditions.panic} compact={compact} severe={conditions.panic > 60} resist={conditions.panicResistance} />
         ),
-        settings.pain && (
+        settings.pain && conditions.pain > 0 && (
           <MiniCond key="pain" name="pain" icon="activity" value={conditions.pain} compact={compact} severe={conditions.pain > 60} />
+        ),
+        settings.boredom && conditions.boredom > 0 && (
+          <MiniCond key="boredom" name="boredom" icon="flame" value={conditions.boredom} compact={compact} severe={false} />
         ),
       ].filter(Boolean)
     : [];
@@ -265,7 +270,7 @@ export function ConditionCluster({ compact = false }: { compact?: boolean }) {
           width: '100%',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, overflowX: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', columnGap: 9, rowGap: 7 }}>
           {groups.flatMap((group, i) => {
             const divider = i < groups.length - 1 ? <Divider key={`d${i}`} height={16} /> : null;
             return [...group, divider];

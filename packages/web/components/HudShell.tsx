@@ -12,9 +12,7 @@ import { ModalProvider, useModalContext } from './ModalContext';
 import { useServerConnection } from '../lib/gameSocket';
 
 const HOTBAR_CLEARANCE = 16;
-// compact matches the single-row mobile ConditionCluster's height (~57px)
-// plus its 8px top padding and a small clearance gap - the old value was
-// tuned for the two-row layout it replaced.
+const TOP_CLEARANCE = 12;
 const TOP_INSET = { wide: 88, compact: 76 };
 const LEFT_INSET = { wide: 112, compact: 12 };
 // Mobile hides the right-edge map buttons entirely, so it only needs a
@@ -28,6 +26,7 @@ function HudShellInner() {
   const [annotationsOpen, setAnnotationsOpen] = useState(false);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const hotbarRef = useRef<HTMLDivElement | null>(null);
+  const topClusterRef = useRef<HTMLDivElement | null>(null);
   const { isModalOpen } = useModalContext();
   const connection = useServerConnection();
   // Mobile hotbar always clears the persistent bottom tab bar; the wide
@@ -58,6 +57,21 @@ function HudShellInner() {
     return () => observer.disconnect();
   }, [hotbarBottom]);
 
+  useEffect(() => {
+    const shell = shellRef.current;
+    const cluster = topClusterRef.current;
+    if (!shell || !cluster) return;
+
+    const fallback = isWide ? TOP_INSET.wide : TOP_INSET.compact;
+    const observer = new ResizeObserver(() => {
+      const { bottom } = cluster.getBoundingClientRect();
+      const inset = bottom > 0 ? bottom + TOP_CLEARANCE : fallback;
+      shell.style.setProperty('--hud-top-inset', `${Math.round(inset)}px`);
+    });
+    observer.observe(cluster);
+    return () => observer.disconnect();
+  }, [isWide]);
+
   return (
     <div
       ref={shellRef}
@@ -76,7 +90,7 @@ function HudShellInner() {
       <MapCanvas pins={mockMapPins} />
       {isWide ? (
         <>
-          <div style={{ position: 'absolute', top: 24, left: 116, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+          <div ref={topClusterRef} style={{ position: 'absolute', top: 24, left: 116, zIndex: 2, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
             <ConditionCluster compact={false} />
             {(!connection.connected || !connection.modConnected) && <ConnectionStatus connected={connection.connected} />}
           </div>
@@ -87,6 +101,7 @@ function HudShellInner() {
       ) : (
         <>
           <div
+            ref={topClusterRef}
             style={{
               position: 'absolute',
               top: 0,
