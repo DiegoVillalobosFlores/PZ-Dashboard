@@ -178,21 +178,6 @@ export const MapOverlayLayer = memo(function MapOverlayLayer({
       {vehicle && !position?.inVehicle && (
         <g transform={`translate(${vehicle.x} ${vehicle.y}) scale(${zoomSquares / 500})`}>
           <title>{vehicle.name}</title>
-          {smoothedCenter && (
-            <g
-              transform={`rotate(${(Math.atan2(vehicle.x - smoothedCenter.x, smoothedCenter.y - vehicle.y) * 180) / Math.PI}) translate(0 20) rotate(-45)`}
-            >
-              <Navigation
-                width={14}
-                height={14}
-                x={-7}
-                y={-7}
-                fill="var(--color-warning)"
-                color="white"
-                strokeWidth={1.5}
-              />
-            </g>
-          )}
           <Car
             width={24}
             height={24}
@@ -226,6 +211,23 @@ export const MapOverlayLayer = memo(function MapOverlayLayer({
           stroke="white"
           strokeWidth={zoomSquares / 900}
         />
+      )}
+
+      {smoothedCenter && vehicle && !position?.inVehicle && (
+        <g
+          transform={`translate(${smoothedCenter.x} ${smoothedCenter.y}) scale(${zoomSquares / 500}) rotate(${(Math.atan2(vehicle.x - smoothedCenter.x, smoothedCenter.y - vehicle.y) * 180) / Math.PI}) translate(0 -20) rotate(-45)`}
+        >
+          <title>{vehicle.name}</title>
+          <Navigation
+            width={14}
+            height={14}
+            x={-7}
+            y={-7}
+            fill="var(--color-warning)"
+            color="white"
+            strokeWidth={1.5}
+          />
+        </g>
       )}
 
       {smoothedCenter && (
