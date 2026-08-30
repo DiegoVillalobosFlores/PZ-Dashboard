@@ -67,6 +67,14 @@ export function useConditionClusterSettings() {
   });
 }
 
+export function useAutoZoomOnSpeed() {
+  return useLocalStorage({
+    key: 'pz-dashboard.autoZoomOnSpeed',
+    defaultValue: false,
+    getInitialValueInEffect: false,
+  });
+}
+
 export function useAutoRotate() {
   return useLocalStorage({
     key: 'pz-dashboard.autoRotate',

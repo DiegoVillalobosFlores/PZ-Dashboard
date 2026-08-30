@@ -3,6 +3,7 @@ import { GlassPanel } from '../components/GlassPanel';
 import { ScreenModal } from '../components/ScreenModal';
 import {
   useAutoRotate,
+  useAutoZoomOnSpeed,
   useFogOfWar,
   useShowSummary,
   useShowTraits,
@@ -93,6 +94,7 @@ function SectionLabel({ children }: { children: string }) {
 export function SettingsScreen() {
   const [fogOfWar, setFogOfWar] = useFogOfWar();
   const [autoRotate, setAutoRotate] = useAutoRotate();
+  const [autoZoomOnSpeed, setAutoZoomOnSpeed] = useAutoZoomOnSpeed();
   const [showSummary, setShowSummary] = useShowSummary();
   const [showTraits, setShowTraits] = useShowTraits();
   const [settings, setSettings] = useConditionClusterSettings();
@@ -155,6 +157,13 @@ export function SettingsScreen() {
         </label>
 
         <div style={{ marginTop: 16 }}>
+          <SettingRow
+            title="Auto zoom while driving"
+            hint="Widen the map view when travelling fast"
+            checked={autoZoomOnSpeed}
+            onChange={setAutoZoomOnSpeed}
+          />
+
           <SettingRow
             title="Character rotation"
             hint="Slowly spin the 3D character on the Health screen"

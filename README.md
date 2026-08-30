@@ -64,7 +64,10 @@ path exists.
 
 Every category has its own on/off switch and update interval under
 **Options > Mods > PZ Dashboard**, editable live, so you can trade streamed
-detail against in-game performance. A manifest file reports which categories
+detail against in-game performance. Map Position samples at 0.1s instead of
+0.25s while the player is in a vehicle, but only while its interval is still
+at the default — a player who raised it for performance keeps the interval
+they asked for. A manifest file reports which categories
 are on and when each last updated, so the dashboard can tell "off" apart from
 "no data yet" — and the vitals pill keeps its last reading on screen, dimmed,
 when the game or the server goes away.

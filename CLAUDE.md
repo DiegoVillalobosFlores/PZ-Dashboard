@@ -138,6 +138,6 @@ rules below target those.
   `mockVitals` (a pre-connection fallback so the HUD isn't blank) and
   `mockMapPins` (the zombie/POI markers, which the mod doesn't collect).
   Liveness depends on `packages/core/state/watcher.ts` **polling** `PZ_LUA_DIR`
-  (`PZ_POLL_MS`, default 250ms) — `fs.watch` alone silently drops most
+  (`POLL_INTERVAL_MS`/`PZ_POLL_MS`, default 100ms) — `fs.watch` alone silently drops most
   events under the mod's write load and will strand the whole dashboard on
   a minutes-old snapshot. Don't "simplify" the poll away.

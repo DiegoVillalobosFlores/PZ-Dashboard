@@ -1,2 +1,2 @@
 export const FILE_PREFIX = "PZDashboard_";
-export const POLL_INTERVAL_MS = 250;
+export const POLL_INTERVAL_MS = 100;

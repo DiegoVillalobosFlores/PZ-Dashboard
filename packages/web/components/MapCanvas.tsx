@@ -18,12 +18,19 @@ import {
 import { useGameSubscription } from '../lib/gameSocket';
 import { useMapFocus } from '../lib/mapFocus';
 import { useModalContext } from './ModalContext';
-import { useFogOfWar } from '../lib/settings';
+import { useAutoZoomOnSpeed, useFogOfWar } from '../lib/settings';
 import { useAssetRevision } from '../lib/assetUrl';
 import type { MapPin } from '../mock/gameState';
 import type { VehicleSnapshot } from '../lib/liveTypes';
 import { MapOverlayLayer, VectorGeometryLayer, VectorLabelsLayer } from './MapLayers';
 import { MapTileLayer, useMapTiles } from './MapTileLayer';
+import {
+  interpolateMotion,
+  motionSpeed,
+  pushFix,
+  type MotionPoint,
+  type MotionTrack,
+} from '../lib/mapMotion';
 import { panCenter, screenToWorld as cameraScreenToWorld, zoomAroundAnchor } from '../lib/mapCamera';
 
 const PIN_COLOR: Record<MapPin['kind'], string> = {
@@ -52,8 +59,8 @@ const DEFAULT_ZOOM_SQUARES = 320;
 const MIN_ZOOM_SQUARES = 12;
 const MAX_ZOOM_SQUARES = 12000;
 
-const SMOOTHING_TIME_CONSTANT_MS = 120;
-const SNAP_DISTANCE_SQUARES = 40;
+const FAST_TRAVEL_SQUARES_PER_SECOND = 8;
+const TRAVEL_ZOOM_SQUARES = 720;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -67,50 +74,58 @@ function pointerMidpoint(a: WorldPoint, b: WorldPoint): WorldPoint {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-function useSmoothedPoint(target: WorldPoint | null): WorldPoint | null {
+function useFixMotion(target: WorldPoint | null): { point: WorldPoint | null; speed: number } {
   const [point, setPoint] = useState<WorldPoint | null>(target);
-  const pointRef = useRef<WorldPoint | null>(target);
-  const targetRef = useRef<WorldPoint | null>(target);
-  targetRef.current = target;
+  const [speed, setSpeed] = useState(0);
+  const trackRef = useRef<MotionTrack | null>(null);
+  const pointRef = useRef<MotionPoint | null>(target);
+  const speedRef = useRef(0);
+  const frameRef = useRef(0);
 
   const targetX = target?.x;
   const targetY = target?.y;
 
   useEffect(() => {
     if (targetX === undefined || targetY === undefined) return;
-    const next = { x: targetX, y: targetY };
+    trackRef.current = pushFix(trackRef.current, { x: targetX, y: targetY }, performance.now());
+    if (frameRef.current) return;
 
-    if (!pointRef.current || pointerDistance(pointRef.current, next) > SNAP_DISTANCE_SQUARES) {
-      pointRef.current = next;
-      setPoint(next);
-      return;
-    }
-
-    let frame = 0;
-    let previousMs = performance.now();
     const step = (nowMs: number) => {
-      const elapsed = nowMs - previousMs;
-      previousMs = nowMs;
-      const from = pointRef.current!;
-      const to = targetRef.current!;
-      const t = 1 - Math.exp(-elapsed / SMOOTHING_TIME_CONSTANT_MS);
-      const eased = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
-
-      if (pointerDistance(eased, to) < 0.1) {
-        pointRef.current = to;
-        setPoint(to);
+      const track = trackRef.current;
+      if (!track) {
+        frameRef.current = 0;
         return;
       }
-      pointRef.current = eased;
-      setPoint(eased);
-      frame = requestAnimationFrame(step);
+
+      const { point: next, settled } = interpolateMotion(track, nowMs);
+      const nextSpeed = motionSpeed(track, nowMs);
+
+      if (!pointRef.current || pointRef.current.x !== next.x || pointRef.current.y !== next.y) {
+        pointRef.current = next;
+        setPoint(next);
+      }
+      if (speedRef.current !== nextSpeed) {
+        speedRef.current = nextSpeed;
+        setSpeed(nextSpeed);
+      }
+
+      if (settled && nextSpeed === 0) {
+        frameRef.current = 0;
+        return;
+      }
+      frameRef.current = requestAnimationFrame(step);
     };
 
-    frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
+    frameRef.current = requestAnimationFrame(step);
   }, [targetX, targetY]);
 
-  return target ? point : null;
+  useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
+
+  return { point: target ? point : null, speed };
+}
+
+function useSmoothedPoint(target: WorldPoint | null): WorldPoint | null {
+  return useFixMotion(target).point;
 }
 
 function PlaceholderGrid({ pins }: { pins: MapPin[] }) {
@@ -192,7 +207,8 @@ export function MapCanvas({
   const [vectorLoading, setVectorLoading] = useState(false);
 
   const liveCenter = position ? { x: position.x, y: position.y } : null;
-  const smoothedCenter = useSmoothedPoint(liveCenter);
+  const motion = useFixMotion(liveCenter);
+  const smoothedCenter = motion.point;
   const smoothedDir = useSmoothedPoint(
     position?.dirX !== undefined && position.dirY !== undefined
       ? { x: position.dirX * 100, y: position.dirY * 100 }
@@ -205,6 +221,32 @@ export function MapCanvas({
   const fetchCenter = manualCenter ?? liveCenter;
   const wantsRaster = zoomSquares >= BROAD_VIEW_ZOOM_SQUARES - 1;
 
+  const [autoZoomOnSpeed] = useAutoZoomOnSpeed();
+  const isTravellingFast = motion.speed >= FAST_TRAVEL_SQUARES_PER_SECOND;
+
+  useEffect(() => {
+    if (autoZoomOnSpeed && isTravellingFast) {
+      if (autoZoomActiveRef.current || autoZoomSuppressedRef.current) return;
+      autoZoomActiveRef.current = true;
+      preAutoZoomRef.current = zoomRef.current;
+      setZoomSquares((current) =>
+        clamp(Math.max(current, TRAVEL_ZOOM_SQUARES), MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES),
+      );
+      return;
+    }
+
+    if (!autoZoomActiveRef.current) {
+      autoZoomSuppressedRef.current = false;
+      return;
+    }
+
+    autoZoomActiveRef.current = false;
+    autoZoomSuppressedRef.current = false;
+    const restore = preAutoZoomRef.current;
+    preAutoZoomRef.current = null;
+    if (restore !== null) setZoomSquares(clamp(restore, MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES));
+  }, [autoZoomOnSpeed, isTravellingFast]);
+
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const centerRef = useRef(center);
   centerRef.current = center;
@@ -212,6 +254,9 @@ export function MapCanvas({
   manualCenterRef.current = manualCenter;
   const zoomRef = useRef(zoomSquares);
   zoomRef.current = zoomSquares;
+  const preAutoZoomRef = useRef<number | null>(null);
+  const autoZoomActiveRef = useRef(false);
+  const autoZoomSuppressedRef = useRef(false);
   const fetchedBoundsRef = useRef<{ region: string; x1: number; y1: number; x2: number; y2: number } | null>(null);
 
   const tileState = useMapTiles(mapMeta, {
@@ -268,9 +313,17 @@ export function MapCanvas({
     };
   }, [region, assetRevision]);
 
+  function suppressAutoZoom() {
+    if (!autoZoomActiveRef.current) return;
+    autoZoomActiveRef.current = false;
+    preAutoZoomRef.current = null;
+    autoZoomSuppressedRef.current = true;
+  }
+
   function zoomAt(clientX: number, clientY: number, factor: number, rect: DOMRect) {
     const current = centerRef.current;
     if (!current) return;
+    suppressAutoZoom();
     const next = zoomAroundAnchor(current, zoomRef.current, factor, clientX, clientY, rect, MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES);
     setZoomSquares(next.zoomSquares);
     const offsetX = clientX - rect.left - rect.width / 2;
@@ -279,6 +332,7 @@ export function MapCanvas({
   }
 
   useMapFocus((target) => {
+    suppressAutoZoom();
     setManualCenter({ x: target.x, y: target.y });
     if (target.zoomSquares !== undefined) {
       setZoomSquares(clamp(target.zoomSquares, MIN_ZOOM_SQUARES, MAX_ZOOM_SQUARES));
@@ -334,6 +388,7 @@ export function MapCanvas({
     const span = Math.max(rect.width, rect.height);
 
     if (gesture.mode === 'pan' && pointersRef.current.size === 1) {
+      suppressAutoZoom();
       setManualCenter(panCenter(gesture.startCenter, gesture.startClientX, gesture.startClientY, e.clientX, e.clientY, zoomRef.current, rect));
     } else if (gesture.mode === 'pinch' && pointersRef.current.size === 2) {
       const [a, b] = [...pointersRef.current.values()];
@@ -349,6 +404,7 @@ export function MapCanvas({
       const nextCenterX = anchorWorldX - (mid.x - rect.left - rect.width / 2) * uppNext;
       const nextCenterY = anchorWorldY - (mid.y - rect.top - rect.height / 2) * uppNext;
 
+      suppressAutoZoom();
       setZoomSquares(nextZoom);
       setManualCenter({ x: nextCenterX, y: nextCenterY });
     }

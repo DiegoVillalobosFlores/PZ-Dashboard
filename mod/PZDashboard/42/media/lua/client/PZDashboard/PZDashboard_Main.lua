@@ -61,6 +61,10 @@ local function tick()
 
         if enabled then
             local intervalMs = PZDashboard.Config.getIntervalSeconds(category) * 1000
+            local vehicleMs = category.vehicleInterval and category.vehicleInterval * 1000
+            if vehicleMs and player:getVehicle() ~= nil and intervalMs == category.defaultInterval * 1000 then
+                intervalMs = vehicleMs
+            end
             local last = lastRunMs[category.id] or 0
             if now - last >= intervalMs then
                 lastRunMs[category.id] = now
