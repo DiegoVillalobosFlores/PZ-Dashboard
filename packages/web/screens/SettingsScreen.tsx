@@ -2,6 +2,7 @@ import { Switch } from '@mantine/core';
 import { GlassPanel } from '../components/GlassPanel';
 import { ScreenModal } from '../components/ScreenModal';
 import {
+  useAutoRotate,
   useFogOfWar,
   useShowSummary,
   useShowTraits,
@@ -91,6 +92,7 @@ function SectionLabel({ children }: { children: string }) {
 
 export function SettingsScreen() {
   const [fogOfWar, setFogOfWar] = useFogOfWar();
+  const [autoRotate, setAutoRotate] = useAutoRotate();
   const [showSummary, setShowSummary] = useShowSummary();
   const [showTraits, setShowTraits] = useShowTraits();
   const [settings, setSettings] = useConditionClusterSettings();
@@ -153,6 +155,13 @@ export function SettingsScreen() {
         </label>
 
         <div style={{ marginTop: 16 }}>
+          <SettingRow
+            title="Character rotation"
+            hint="Slowly spin the 3D character on the Health screen"
+            checked={autoRotate}
+            onChange={setAutoRotate}
+          />
+
           <SettingRow
             title="Skills summary"
             hint="Show the trait effects summary on the Skills screen"

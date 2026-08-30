@@ -66,3 +66,11 @@ export function useConditionClusterSettings() {
     getInitialValueInEffect: false,
   });
 }
+
+export function useAutoRotate() {
+  return useLocalStorage({
+    key: 'pz-dashboard.autoRotate',
+    defaultValue: true,
+    getInitialValueInEffect: false,
+  });
+}

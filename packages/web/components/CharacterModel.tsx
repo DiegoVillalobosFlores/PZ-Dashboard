@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useGameSubscription } from '../lib/gameSocket';
 import { useAssetRevision } from '../lib/assetUrl';
+import { useAutoRotate } from '../lib/settings';
 
 type FigurePart = {
   id: string;
@@ -334,6 +335,9 @@ export function CharacterModel({
   const lastTickRef = useRef<number | null>(null);
   const boxRef = useRef({ width: 1, height: 1 });
   const [ready, setReady] = useState(false);
+  const [autoRotate] = useAutoRotate();
+  const autoRotateRef = useRef(autoRotate);
+  autoRotateRef.current = autoRotate;
 
   const scene = useMemo(() => {
     const created = new THREE.Scene();
@@ -388,7 +392,7 @@ export function CharacterModel({
       frame = requestAnimationFrame(tick);
       const previous = lastTickRef.current;
       lastTickRef.current = now;
-      if (previous !== null && !interactingRef.current && now >= resumeAtRef.current) {
+      if (previous !== null && autoRotateRef.current && !interactingRef.current && now >= resumeAtRef.current) {
         yawRef.current += ((now - previous) / 1000) * AUTO_YAW_SPEED;
       }
       if (groupRef.current) {
