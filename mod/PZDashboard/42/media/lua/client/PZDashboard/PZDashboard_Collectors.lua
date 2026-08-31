@@ -233,19 +233,24 @@ end
 
 -- WorldMapVisited stores one flag pair per 32x32-square "unit", 8x8 units per
 -- 256-square cell: VISITED is set by walking past, KNOWN only by reading a map
--- item, so a unit counts as seen if it carries either. Only the per-unit
--- queries are exposed to Lua, so the whole grid has to be probed a unit at a
--- time; the world is ~314k units, which is far too many calls for one frame.
--- ponytail: the grid is swept in FOG_UNITS_PER_PASS slices per collector run,
--- so a remote reveal (reading a map item) can take a minute to show up. The
--- area around the player is always swept first so walking reveals immediately.
+-- item, so a unit counts as seen if it carries either. isVisited/isKnown take
+-- squares and quantise them to 32-square units themselves; their four-argument
+-- forms answer "is anything in this rectangle set", which is what makes a
+-- whole-world sweep affordable: one call rules out an empty 256-square cell,
+-- and only cells that answer yes cost the 64 per-unit probes.
+-- ponytail: the grid is swept in FOG_CALLS_PER_PASS slices per collector run,
+-- so a remote reveal (reading a map item) can take a couple of minutes to show
+-- up. The area around the player is always swept first so walking reveals
+-- immediately.
 local FOG_SQUARES_PER_UNIT = 32
 local FOG_UNITS_PER_CELL = 8
-local FOG_UNITS_PER_PASS = 6000
+local FOG_CELL_SQUARES = FOG_SQUARES_PER_UNIT * FOG_UNITS_PER_CELL
+local WORLD_CELL_SQUARES = 300
+local FOG_CALLS_PER_PASS = 6000
 local FOG_PLAYER_RADIUS_UNITS = 20
 local FOG_BITS = { 1, 2, 4, 8, 16, 32, 64, 128 }
 
-local fog = { bits = {}, cursor = 0, width = 0, height = 0, originX = 0, originY = 0, dirty = false, emitted = false }
+local fog = { bits = {}, cursor = 0, cellsWide = 0, cellsHigh = 0, cellX = 0, cellY = 0, dirty = false, emitted = false }
 
 local function fogProbe(visited, ux, uy)
     local squareX = ux * FOG_SQUARES_PER_UNIT + 16
@@ -267,25 +272,45 @@ local function fogProbe(visited, ux, uy)
     end
 end
 
+-- Returns how many Java calls the cell cost, so a pass can budget by work done
+-- rather than by cells: an empty cell is two calls, a seen one is 130.
+local function fogSweepCell(visited, cellX, cellY)
+    local x1 = cellX * FOG_CELL_SQUARES
+    local y1 = cellY * FOG_CELL_SQUARES
+    local x2 = x1 + FOG_CELL_SQUARES - 1
+    local y2 = y1 + FOG_CELL_SQUARES - 1
+    if not visited:isVisited(x1, y1, x2, y2) and not visited:isKnown(x1, y1, x2, y2) then return 2 end
+
+    for uy = 0, FOG_UNITS_PER_CELL - 1 do
+        for ux = 0, FOG_UNITS_PER_CELL - 1 do
+            fogProbe(visited, cellX * FOG_UNITS_PER_CELL + ux, cellY * FOG_UNITS_PER_CELL + uy)
+        end
+    end
+    return 2 + FOG_UNITS_PER_CELL * FOG_UNITS_PER_CELL * 2
+end
+
 function PZDashboard.Collectors.fog(player)
     local visited = safe(function() return WorldMapVisited.getInstance() end, nil, "fog.instance")
     if not visited then return nil end
 
-    if fog.width == 0 then
-        -- WorldMapVisited keeps its own cell bounds private, but they're just
-        -- the world's, so the sweep is sized off the metagrid instead.
+    if fog.cellsWide == 0 then
+        -- The world's bounds, in the visited grid's own 256-square cells. The
+        -- metagrid counts in 300-square cells, so its numbers go through
+        -- squares first; sweeping them as if they were 256 left the east and
+        -- south edges of the world unprobed. WorldMapVisited's own
+        -- getWidthInCells/getHeightInCells aren't exposed to Lua.
         local grid = safe(function() return getWorld():getMetaGrid() end, nil, "fog.metaGrid")
         if not grid then return nil end
-        local minCellX = safe(function() return grid:getMinX() end, 0, "fog.minX")
-        local minCellY = safe(function() return grid:getMinY() end, 0, "fog.minY")
-        local maxCellX = safe(function() return grid:getMaxX() end, -1, "fog.maxX")
-        local maxCellY = safe(function() return grid:getMaxY() end, -1, "fog.maxY")
-        fog.originX = minCellX * FOG_UNITS_PER_CELL
-        fog.originY = minCellY * FOG_UNITS_PER_CELL
-        fog.width = (maxCellX - minCellX + 1) * FOG_UNITS_PER_CELL
-        fog.height = (maxCellY - minCellY + 1) * FOG_UNITS_PER_CELL
-        if fog.width <= 0 or fog.height <= 0 then
-            fog.width = 0
+        local minSquareX = safe(function() return grid:getMinX() end, 0, "fog.minX") * WORLD_CELL_SQUARES
+        local minSquareY = safe(function() return grid:getMinY() end, 0, "fog.minY") * WORLD_CELL_SQUARES
+        local maxSquareX = (safe(function() return grid:getMaxX() end, -1, "fog.maxX") + 1) * WORLD_CELL_SQUARES
+        local maxSquareY = (safe(function() return grid:getMaxY() end, -1, "fog.maxY") + 1) * WORLD_CELL_SQUARES
+        fog.cellX = math.floor(minSquareX / FOG_CELL_SQUARES)
+        fog.cellY = math.floor(minSquareY / FOG_CELL_SQUARES)
+        fog.cellsWide = math.ceil(maxSquareX / FOG_CELL_SQUARES) - fog.cellX
+        fog.cellsHigh = math.ceil(maxSquareY / FOG_CELL_SQUARES) - fog.cellY
+        if fog.cellsWide <= 0 or fog.cellsHigh <= 0 then
+            fog.cellsWide = 0
             return nil
         end
     end
@@ -298,9 +323,14 @@ function PZDashboard.Collectors.fog(player)
         end
     end
 
-    local total = fog.width * fog.height
-    for _ = 1, FOG_UNITS_PER_PASS do
-        fogProbe(visited, fog.originX + fog.cursor % fog.width, fog.originY + math.floor(fog.cursor / fog.width))
+    local total = fog.cellsWide * fog.cellsHigh
+    local budget = FOG_CALLS_PER_PASS
+    while budget > 0 do
+        budget = budget - fogSweepCell(
+            visited,
+            fog.cellX + fog.cursor % fog.cellsWide,
+            fog.cellY + math.floor(fog.cursor / fog.cellsWide)
+        )
         fog.cursor = (fog.cursor + 1) % total
     end
 
