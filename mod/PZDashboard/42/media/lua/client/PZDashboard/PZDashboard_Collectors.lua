@@ -4,6 +4,21 @@ PZDashboard.Collectors = {}
 local safe = PZDashboard.Util.safe
 local trackedVehicles = {}
 
+local VEHICLE_CORNERS = { "FrontLeft", "FrontRight", "RearLeft", "RearRight" }
+local VEHICLE_PART_IDS = {
+    engine = "Engine",
+    hood = "EngineDoor",
+    gasTank = "GasTank",
+    battery = "Battery",
+    muffler = "Muffler",
+    windshield = "Windshield",
+}
+local VEHICLE_CORNER_PART_IDS = {
+    brakes = "Brake",
+    suspension = "Suspension",
+    doors = "Door",
+}
+
 local itemCategory = PZDashboard.Util.itemCategory
 
 local function itemSnapshot(item, label)
@@ -83,6 +98,21 @@ end
 function PZDashboard.Collectors.vehicles(player)
     for _, tracked in pairs(trackedVehicles) do
         tracked.current = false
+        tracked.speedKmh = nil
+        tracked.gear = nil
+        tracked.engineRunning = nil
+        tracked.engineStarted = nil
+        tracked.keysInIgnition = nil
+        tracked.fuelPercent = nil
+        tracked.battery = nil
+        tracked.headlightsOn = nil
+        tracked.engineCondition = nil
+        tracked.worstPartCondition = nil
+        tracked.parts = nil
+        tracked.tires = nil
+        tracked.cabinTemp = nil
+        tracked.heaterActive = nil
+        tracked.heaterSetting = nil
     end
 
     local vehicle = safe(function() return player:getVehicle() end, nil, "vehicles.current")
@@ -120,6 +150,74 @@ function PZDashboard.Collectors.vehicles(player)
                     tracked.dirY = dirY
                 end
                 tracked.current = true
+                tracked.speedKmh = safe(function() return vehicle:getCurrentSpeedKmHour() end, nil, "vehicles.speedKmh")
+                tracked.gear = safe(function() return vehicle:getTransmissionNumberLetter() end, nil, "vehicles.gear")
+                tracked.engineRunning = safe(function() return vehicle:isEngineRunning() end, nil, "vehicles.engineRunning")
+                tracked.engineStarted = safe(function() return vehicle:isEngineStarted() end, nil, "vehicles.engineStarted")
+                tracked.keysInIgnition = safe(function() return vehicle:isKeysInIgnition() end, nil, "vehicles.keysInIgnition")
+                tracked.fuelPercent = safe(function() return vehicle:getRemainingFuelPercentage() end, nil, "vehicles.fuelPercent")
+                tracked.battery = safe(function() return vehicle:getBatteryCharge() end, nil, "vehicles.battery")
+                tracked.headlightsOn = safe(function() return vehicle:getHeadlightsOn() end, nil, "vehicles.headlightsOn")
+                tracked.engineCondition = safe(function()
+                    local part = vehicle:getPartById("Engine")
+                    return part and part:getCondition() or nil
+                end, nil, "vehicles.engineCondition")
+                tracked.worstPartCondition = safe(function()
+                    local worst = nil
+                    for i = 0, vehicle:getPartCount() - 1 do
+                        local part = vehicle:getPartByIndex(i)
+                        if part then
+                            local condition = part:getCondition()
+                            if condition ~= nil and (worst == nil or condition < worst) then
+                                worst = condition
+                            end
+                        end
+                    end
+                    return worst
+                end, nil, "vehicles.worstPartCondition")
+                tracked.parts = safe(function()
+                    local out = {}
+                    for key, partId in pairs(VEHICLE_PART_IDS) do
+                        local part = vehicle:getPartById(partId)
+                        if part then out[key] = part:getCondition() end
+                    end
+                    for key, prefix in pairs(VEHICLE_CORNER_PART_IDS) do
+                        local worst = nil
+                        for _, corner in ipairs(VEHICLE_CORNERS) do
+                            local part = vehicle:getPartById(prefix .. corner)
+                            local condition = part and part:getCondition() or nil
+                            if condition ~= nil and (worst == nil or condition < worst) then
+                                worst = condition
+                            end
+                        end
+                        out[key] = worst
+                    end
+                    return out
+                end, nil, "vehicles.parts")
+                tracked.tires = safe(function()
+                    local out = {}
+                    for _, corner in ipairs(VEHICLE_CORNERS) do
+                        local part = vehicle:getPartById("Tire" .. corner)
+                        if part then
+                            local capacity = part:getContainerCapacity()
+                            local amount = part:getContainerContentAmount()
+                            out[corner] = {
+                                condition = part:getCondition(),
+                                pressure = (capacity and capacity > 0 and amount) and (amount / capacity * 100) or nil,
+                            }
+                        end
+                    end
+                    return out
+                end, nil, "vehicles.tires")
+                tracked.cabinTemp = safe(function()
+                    local part = vehicle:getPartById("PassengerCompartment")
+                    return part and tonumber(part:getModData().temperature) or nil
+                end, nil, "vehicles.cabinTemp")
+                local heater = safe(function() return vehicle:getHeater() end, nil, "vehicles.heater")
+                if heater then
+                    tracked.heaterActive = safe(function() return heater:getModData().active == true end, nil, "vehicles.heaterActive")
+                    tracked.heaterSetting = safe(function() return tonumber(heater:getModData().temperature) end, nil, "vehicles.heaterSetting")
+                end
             end
         end
     end

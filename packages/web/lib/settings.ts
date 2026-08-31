@@ -5,6 +5,8 @@ export const DEFAULT_SHOW_TRAITS = true;
 export const DEFAULT_SHOW_SUMMARY = true;
 export const DEFAULT_AUTO_ZOOM_ON_SPEED = false;
 export const DEFAULT_AUTO_ROTATE = true;
+export const DEFAULT_DRIVING_HUD = true;
+export const DEFAULT_DRIVING_HUD_COLLAPSED = false;
 
 // Mantine's hook syncs every subscriber in the tab, so the Settings screen and
 // the map read the same value without a provider.
@@ -85,6 +87,22 @@ export function useAutoRotate() {
   return useLocalStorage({
     key: 'pz-dashboard.autoRotate',
     defaultValue: DEFAULT_AUTO_ROTATE,
+    getInitialValueInEffect: false,
+  });
+}
+
+export function useDrivingHud() {
+  return useLocalStorage({
+    key: 'pz-dashboard.drivingHud',
+    defaultValue: DEFAULT_DRIVING_HUD,
+    getInitialValueInEffect: false,
+  });
+}
+
+export function useDrivingHudCollapsed() {
+  return useLocalStorage({
+    key: 'pz-dashboard.drivingHudCollapsed',
+    defaultValue: DEFAULT_DRIVING_HUD_COLLAPSED,
     getInitialValueInEffect: false,
   });
 }

@@ -106,12 +106,9 @@ export function EquipmentPanel({
           <span
             style={{
               fontSize: compact ? 16 : 18,
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
               color: 'var(--color-text-primary)',
             }}
-            className="pz-label"
+            className="pz-display"
           >
             {firstName}
           </span>
@@ -119,9 +116,7 @@ export function EquipmentPanel({
             <span
               style={{
                 fontSize: compact ? 12 : 13,
-                fontFamily: 'var(--font-display)',
                 fontWeight: 500,
-                letterSpacing: '0.04em',
                 color: 'var(--color-text-secondary)',
               }}
               className="pz-label"

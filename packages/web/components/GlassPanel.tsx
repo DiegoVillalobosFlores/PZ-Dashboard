@@ -22,7 +22,7 @@ export function GlassPanel({
         background: bg,
         borderRadius: 'var(--radius-sharp)',
         backdropFilter: 'var(--frost-blur)',
-        boxShadow: '0 3px 16px rgba(0, 0, 0, 0.4)',
+        boxShadow: 'var(--shadow-float)',
         cursor: onClick ? 'pointer' : undefined,
         ...style,
       }}

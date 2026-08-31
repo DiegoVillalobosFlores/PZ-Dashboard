@@ -3,6 +3,8 @@ import {
   DEFAULT_AUTO_ROTATE,
   DEFAULT_AUTO_ZOOM_ON_SPEED,
   DEFAULT_CLUSTER_SETTINGS,
+  DEFAULT_DRIVING_HUD,
+  DEFAULT_DRIVING_HUD_COLLAPSED,
   DEFAULT_FOG_OF_WAR,
   DEFAULT_SHOW_SUMMARY,
   DEFAULT_SHOW_TRAITS,
@@ -16,6 +18,8 @@ test('keeps documented setting defaults', () => {
     showSummary: DEFAULT_SHOW_SUMMARY,
     autoZoomOnSpeed: DEFAULT_AUTO_ZOOM_ON_SPEED,
     autoRotate: DEFAULT_AUTO_ROTATE,
+    drivingHud: DEFAULT_DRIVING_HUD,
+    drivingHudCollapsed: DEFAULT_DRIVING_HUD_COLLAPSED,
     cluster: DEFAULT_CLUSTER_SETTINGS,
   }).toEqual({
     fogOfWar: true,
@@ -23,6 +27,8 @@ test('keeps documented setting defaults', () => {
     showSummary: true,
     autoZoomOnSpeed: false,
     autoRotate: true,
+    drivingHud: true,
+    drivingHudCollapsed: false,
     cluster: {
       showCluster: true,
       health: true,

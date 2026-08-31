@@ -55,11 +55,9 @@ function SkillTile({ skill, width, compact }: { skill: SkillState; width: number
   );
   const nameLabel = (
     <span
+      className="pz-title"
       style={{
         fontSize: compact ? 11 : 12,
-        fontFamily: 'var(--font-display)',
-        fontWeight: 600,
-        letterSpacing: '0.02em',
         color: 'var(--color-text-primary)',
         lineHeight: 1.25,
         ...(compact
@@ -176,9 +174,6 @@ function SummaryRow({
           style={{
             color: 'var(--color-text-primary)',
             fontSize: 11,
-            fontFamily: 'var(--font-display)',
-            fontWeight: 700,
-            letterSpacing: '0.08em',
           }}
         >
           Summary
@@ -206,9 +201,6 @@ function SummaryRow({
               style={{
                 color: column.label === 'Combat' ? 'var(--color-accent)' : 'var(--color-text-secondary)',
                 fontSize: 9,
-                fontFamily: 'var(--font-display)',
-                fontWeight: 700,
-                letterSpacing: '0.06em',
               }}
             >
               {column.label}
@@ -244,9 +236,6 @@ function CategorySection({
         className="pz-label"
         style={{
           fontSize: 11,
-          fontFamily: 'var(--font-display)',
-          fontWeight: 700,
-          letterSpacing: '0.08em',
           color: 'var(--color-accent)',
         }}
       >
@@ -288,12 +277,9 @@ export function SkillsPanel({
 
   const header = (
     <span
-      className="pz-label"
+      className="pz-display"
       style={{
         fontSize: 18,
-        fontFamily: 'var(--font-display)',
-        fontWeight: 700,
-        letterSpacing: '0.1em',
         color: 'var(--color-text-primary)',
       }}
     >
@@ -333,6 +319,7 @@ export function SkillsPanel({
           role="tab"
           aria-selected={activeMobileTab === tab}
           onClick={() => setMobileTab(tab)}
+          className="pz-label"
           style={{
             flex: 1,
             padding: '8px 4px',
@@ -340,11 +327,7 @@ export function SkillsPanel({
             background: activeMobileTab === tab ? 'var(--color-accent-fill-weak)' : 'var(--color-glass-inset)',
             border: '1px solid var(--color-border-default)',
             borderRadius: 'var(--radius-sharp)',
-            fontFamily: 'var(--font-display)',
             fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
           }}
         >
           {tab}

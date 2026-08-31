@@ -164,7 +164,6 @@ export function EquipTile({
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: spec.badge.fontSize,
-              fontFamily: 'Inter Tight, var(--font-sans)',
               fontWeight: 700,
               background: 'rgba(0,0,0,0.55)',
               color: 'var(--color-text-secondary)',
@@ -176,15 +175,13 @@ export function EquipTile({
 
         {spec.insetLabel && (
           <span
-            className="pz-label"
+            className="pz-display"
             style={{
               position: 'absolute',
               top: spec.insetLabel.top,
               left: spec.insetLabel.left,
               fontSize: spec.insetLabel.fontSize,
-              fontFamily: 'var(--font-display)',
               fontWeight: 600,
-              letterSpacing: '0.1em',
               color: 'var(--color-text-tertiary)',
             }}
           >
@@ -202,6 +199,7 @@ export function EquipTile({
                 top: spec.itemName.top - 2,
                 left: spec.itemName.left,
                 width: spec.itemName.width,
+                letterSpacing: 'var(--tracking-title)',
                 textAlign: 'center',
                 fontFamily: 'var(--font-mono)',
                 fontSize: spec.ammoFontSize,
@@ -217,9 +215,8 @@ export function EquipTile({
                 top: spec.itemName.top,
                 left: spec.itemName.left,
                 width: spec.itemName.width,
+                letterSpacing: 'var(--tracking-title)',
                 textAlign: 'center',
-                fontFamily: 'var(--font-display)',
-                fontWeight: 600,
                 fontSize: spec.itemName.fontSize,
                 color: 'var(--color-text-primary)',
                 overflow: 'hidden',
@@ -260,9 +257,7 @@ export function EquipTile({
           style={{
             width: '100%',
             fontSize: spec.caption.fontSize,
-            fontFamily: 'Inter Tight, var(--font-sans)',
             fontWeight: 600,
-            letterSpacing: '0.04em',
             color: 'var(--color-text-secondary)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',

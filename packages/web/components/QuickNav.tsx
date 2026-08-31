@@ -92,7 +92,7 @@ export function QuickNav({ currentId }: { currentId: string }) {
         display: 'flex',
         background: 'var(--color-glass-panel)',
         backdropFilter: 'var(--frost-blur)',
-        boxShadow: '0 -3px 16px rgba(0, 0, 0, 0.4)',
+        boxShadow: 'var(--shadow-float-up)',
         borderTop: '1px solid var(--color-border-default)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
@@ -142,9 +142,6 @@ export function QuickNav({ currentId }: { currentId: string }) {
               className="pz-label"
               style={{
                 fontSize: 9,
-                fontFamily: 'var(--font-display)',
-                fontWeight: 700,
-                letterSpacing: '0.06em',
                 color: active ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
               }}
             >

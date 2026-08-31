@@ -3,7 +3,7 @@ PZDashboard = PZDashboard or {}
 PZDashboard.Categories = {
     { id = "status",    optionName = "StatusEnabled",    intervalOption = "StatusInterval",    defaultInterval = 1.0, maxInterval = 30, label = "Status" },
     { id = "map",       optionName = "MapEnabled",       intervalOption = "MapInterval",       defaultInterval = 0.25, maxInterval = 30, vehicleInterval = 0.1, label = "Map Position" },
-    { id = "vehicles", optionName = "VehiclesEnabled", intervalOption = "VehiclesInterval", defaultInterval = 2.0, maxInterval = 60, label = "Tracked Vehicles" },
+    { id = "vehicles", optionName = "VehiclesEnabled", intervalOption = "VehiclesInterval", defaultInterval = 2.0, maxInterval = 60, vehicleInterval = 0.5, label = "Tracked Vehicles" },
     { id = "fog",       optionName = "FogEnabled",       intervalOption = "FogInterval",       defaultInterval = 2.0, maxInterval = 60, label = "Explored Map" },
     { id = "annotations", optionName = "AnnotationsEnabled", intervalOption = "AnnotationsInterval", defaultInterval = 5.0, maxInterval = 60, label = "Map Annotations" },
     { id = "containers", optionName = "ContainersEnabled", intervalOption = "ContainersInterval", defaultInterval = 2.0, maxInterval = 60, label = "Containers" },

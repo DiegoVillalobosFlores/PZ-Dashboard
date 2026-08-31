@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useMediaQuery } from '@mantine/hooks';
 import { AnnotationsDrawer } from './AnnotationsDrawer';
 import { ConditionCluster } from './ConditionCluster';
+import { DrivingHud, useInVehicle } from './DrivingHud';
 import { FloatingHotbar } from './FloatingHotbar';
 import { HudIconButton } from './HudIconButton';
 import { MapCanvas } from './MapCanvas';
@@ -29,6 +30,7 @@ function HudShellInner() {
   const topClusterRef = useRef<HTMLDivElement | null>(null);
   const { isModalOpen } = useModalContext();
   const connection = useServerConnection();
+  const driving = useInVehicle();
   // Mobile hotbar always clears the persistent bottom tab bar; the wide
   // layout has no bottom bar (nav lives in the left rail) so it only needs
   // to clear the screen edge.
@@ -142,7 +144,11 @@ function HudShellInner() {
           pointerEvents: 'none',
         }}
       >
-        <FloatingHotbar compact={!isWide} forcedSingleRow={hotbarForcedSingleRow} isMobile={!isWide} />
+        {driving ? (
+          <DrivingHud compact={!isWide} />
+        ) : (
+          <FloatingHotbar compact={!isWide} forcedSingleRow={hotbarForcedSingleRow} isMobile={!isWide} />
+        )}
       </div>
 
       <AnnotationsDrawer opened={annotationsOpen} onClose={() => setAnnotationsOpen(false)} />

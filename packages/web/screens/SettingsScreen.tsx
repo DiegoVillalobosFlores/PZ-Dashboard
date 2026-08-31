@@ -7,12 +7,14 @@ import {
   DEFAULT_AUTO_ROTATE,
   DEFAULT_AUTO_ZOOM_ON_SPEED,
   DEFAULT_CLUSTER_SETTINGS,
+  DEFAULT_DRIVING_HUD,
   DEFAULT_FOG_OF_WAR,
   DEFAULT_SHOW_SUMMARY,
   DEFAULT_SHOW_TRAITS,
   settingMatchesFilter,
   useAutoRotate,
   useAutoZoomOnSpeed,
+  useDrivingHud,
   useFogOfWar,
   useShowSummary,
   useShowTraits,
@@ -88,15 +90,7 @@ function SettingRow({
       }}
     >
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span
-          style={{
-            display: 'block',
-            fontSize: 13,
-            fontFamily: 'var(--font-display)',
-            fontWeight: 600,
-            color: 'var(--color-text-primary)',
-          }}
-        >
+        <span className="pz-title" style={{ display: 'block', fontSize: 13, color: 'var(--color-text-primary)' }}>
           {title}
         </span>
         {hint && <span style={{ display: 'block', fontSize: 11, color: 'var(--color-text-tertiary)' }}>{hint}</span>}
@@ -122,16 +116,7 @@ function SectionHeader({ label, onReset }: { label: string; onReset: () => void 
         paddingBottom: 8,
       }}
     >
-      <span
-        style={{
-          fontSize: 11,
-          fontFamily: 'var(--font-display)',
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: 'var(--color-text-tertiary)',
-        }}
-      >
+      <span className="pz-label" style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>
         {label}
       </span>
       <Button
@@ -153,6 +138,7 @@ export function SettingsScreen() {
   const [fogOfWar, setFogOfWar] = useFogOfWar();
   const [autoRotate, setAutoRotate] = useAutoRotate();
   const [autoZoomOnSpeed, setAutoZoomOnSpeed] = useAutoZoomOnSpeed();
+  const [drivingHud, setDrivingHud] = useDrivingHud();
   const [showSummary, setShowSummary] = useShowSummary();
   const [showTraits, setShowTraits] = useShowTraits();
   const [settings, setSettings] = useConditionClusterSettings();
@@ -189,6 +175,15 @@ export function SettingsScreen() {
       checked: autoZoomOnSpeed,
       onChange: setAutoZoomOnSpeed,
       reset: () => setAutoZoomOnSpeed(DEFAULT_AUTO_ZOOM_ON_SPEED),
+    },
+    {
+      id: 'driving-hud',
+      section: 'map',
+      title: 'Driving HUD',
+      hint: 'Show vehicle speed, fuel and condition while driving',
+      checked: drivingHud,
+      onChange: setDrivingHud,
+      reset: () => setDrivingHud(DEFAULT_DRIVING_HUD),
     },
     {
       id: 'character-rotation',
@@ -293,9 +288,6 @@ export function SettingsScreen() {
             style={{
               margin: '0 0 16px',
               fontSize: 13,
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
-              letterSpacing: '0.08em',
               color: 'var(--color-text-secondary)',
             }}
           >

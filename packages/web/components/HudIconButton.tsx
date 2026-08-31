@@ -31,7 +31,7 @@ export function HudIconButton({
         background: 'var(--color-bg-app)',
         border: 'none',
         borderRadius: 'var(--radius-sharp)',
-        boxShadow: '0 3px 16px rgba(0, 0, 0, 0.4)',
+        boxShadow: 'var(--shadow-float)',
         padding: 0,
         cursor: 'pointer',
       }}

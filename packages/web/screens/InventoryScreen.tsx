@@ -179,7 +179,6 @@ export function InventoryScreen() {
       padding: '0 16px',
       cursor: disabled ? 'default' : 'pointer',
       fontSize: 12,
-      letterSpacing: '0.06em',
       borderRadius: 'var(--radius-sharp)',
       color: disabled ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)',
       background: disabled ? 'var(--color-slot-empty-fill)' : 'var(--color-accent-fill-medium)',
@@ -257,12 +256,9 @@ export function InventoryScreen() {
           }}
         >
           <span
-            className="pz-label"
+            className="pz-display"
             style={{
               fontSize: 18,
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
-              letterSpacing: '0.1em',
               color: 'var(--color-text-primary)',
             }}
           >
@@ -355,7 +351,7 @@ export function InventoryScreen() {
             >
               <span
                 className="pz-label"
-                style={{ fontSize: 11, letterSpacing: '0.06em', color: 'var(--color-text-tertiary)' }}
+                style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}
               >
                 Move to
               </span>

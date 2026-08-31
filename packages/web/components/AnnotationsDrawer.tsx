@@ -192,10 +192,8 @@ function AnnotationRow({
             }}
           />
           <span
+            className="pz-title"
             style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 600,
-              letterSpacing: '0.03em',
               textTransform: 'uppercase',
               fontSize: 13,
               color: 'var(--color-text-primary)',
@@ -257,7 +255,7 @@ export function AnnotationsDrawer({ opened, onClose }: { opened: boolean; onClos
         content: {
           background: 'var(--color-glass-panel)',
           backdropFilter: 'var(--frost-blur)',
-          boxShadow: '-12px 0 32px rgba(0, 0, 0, 0.4)',
+          boxShadow: 'var(--shadow-drawer)',
         },
         body: { padding: 0, height: '100%', position: 'relative' },
       }}
@@ -277,9 +275,6 @@ export function AnnotationsDrawer({ opened, onClose }: { opened: boolean; onClos
             className="pz-label"
             style={{
               fontSize: isWide ? 16 : 15,
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
               color: 'var(--color-text-primary)',
             }}
           >

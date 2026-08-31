@@ -42,6 +42,15 @@
   --color-tile-equipped-bg: #2a1a0d;
 
   --radius-sharp: 2px;
+
+  --shadow-float: 0 3px 16px rgba(0, 0, 0, 0.4);
+  --shadow-float-up: 0 -3px 16px rgba(0, 0, 0, 0.4);
+  --shadow-drawer: -12px 0 32px rgba(0, 0, 0, 0.4);
+
+  --tracking-title: 0.02em;
+  --tracking-label: 0.08em;
+  --tracking-display: 0.1em;
+
   --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Chakra Petch', var(--font-sans);
   --font-mono: 'Share Tech Mono', 'Courier New', monospace;
@@ -67,7 +76,25 @@ body {
   overscroll-behavior: none;
 }
 
-.pz-label {
+.pz-display,
+.pz-label,
+.pz-title {
+  font-family: var(--font-display);
+}
+
+.pz-display {
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-display);
+}
+
+.pz-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+.pz-title {
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
 }

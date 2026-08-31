@@ -182,8 +182,10 @@ A cold, desaturated blue-black world with a single warm signal cut through it.
 - **Display** (Chakra Petch 700, 18px, tracking 0.1em, uppercase): Drawer and screen titles only. The largest type in the system — this is a peripheral surface, and it never needs a hero.
 - **Title** (Chakra Petch 600, 12–13px, tracking 0.02em): Skill names, settings row titles, panel sub-headings. Sentence case, because these are names rather than labels.
 - **Body** (Inter 400, 13px): Empty states, tooltip prose, item names, hints. Also the fallback for anything not covered above.
-- **Label** (Chakra Petch 700, 9–11px, tracking 0.06–0.08em, uppercase): The system's workhorse. Item-category headings, nav tab labels, slot names, section headers. The `.pz-label` class applies uppercase and 0.06em tracking; components tighten to 0.08em on category headings and 0.1em on titles.
+- **Label** (Chakra Petch 700, 9–11px, tracking 0.08em, uppercase): The system's workhorse. Item-category headings, nav tab labels, slot names, section headers.
 - **Readout** (Share Tech Mono 700, 10–12px): Every number in the product. Skill levels (`3/10`), trait modifiers, ammo counts, tooltip telemetry.
+
+Display, Title and Label are carried by three utility classes in `index.css` — `.pz-display`, `.pz-title`, `.pz-label` — which own the family, weight, case and tracking. A component sets only its size and colour; it never restates the family or the tracking, and the three tracking steps exist only as `--tracking-display`, `--tracking-label` and `--tracking-title`. A fourth tracking value in a component style is drift.
 
 ### Named Rules
 **The Numbers Are Mono Rule.** Any value that changes as the game runs is set in Share Tech Mono. A number in Inter is a bug — it will jitter as the digit widths change under it.
@@ -221,9 +223,9 @@ Glass surfaces are Overwatch Black at 85–88% alpha with `backdrop-filter: blur
 Opaque surfaces — every equipment tile, every hotbar slot, the map control buttons — use flat `#1a1b1e` with no blur at all. That contrast is the entire depth system: a solid box inside a translucent pane reads instantly as a slot you can fill.
 
 ### Shadow Vocabulary
-- **Floating** (`box-shadow: 0 3px 16px rgba(0, 0, 0, 0.4)`): Every panel, tooltip and map button. One value, used everywhere.
-- **Drawer** (`box-shadow: -12px 0 32px rgba(0, 0, 0, 0.4)`): Right-edge drawers only, thrown leftward to sell the slide-in.
-- **Bottom bar** (`box-shadow: 0 -3px 16px rgba(0, 0, 0, 0.4)`): The mobile nav bar, the Floating shadow inverted.
+- **Floating** (`--shadow-float`, `0 3px 16px rgba(0, 0, 0, 0.4)`): Every panel, tooltip and map button. One value, used everywhere.
+- **Drawer** (`--shadow-drawer`, `-12px 0 32px rgba(0, 0, 0, 0.4)`): Right-edge drawers only, thrown leftward to sell the slide-in.
+- **Bottom bar** (`--shadow-float-up`, `0 -3px 16px rgba(0, 0, 0, 0.4)`): The mobile nav bar, the Floating shadow inverted.
 
 ### Named Rules
 **The One Shadow Rule.** `0 3px 16px rgba(0,0,0,0.4)` is the shadow. The other two are the same shadow pointed a different direction. Inventing a fourth means you are building an elevation ramp this system deliberately does not have.

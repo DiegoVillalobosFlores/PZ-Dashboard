@@ -235,9 +235,6 @@ export function ContainerPane({
                   cursor: 'pointer',
                   textAlign: 'left',
                   fontSize: 11,
-                  fontFamily: 'var(--font-display)',
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
                   color: 'var(--color-accent)',
                 }}
               >

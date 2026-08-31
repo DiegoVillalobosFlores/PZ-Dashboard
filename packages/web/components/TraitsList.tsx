@@ -113,7 +113,7 @@ function TraitRow({ trait }: { trait: TraitSnapshot }) {
           border: '1px solid var(--color-border)',
           backdropFilter: 'var(--frost-blur)',
           borderRadius: 'var(--radius-sharp)',
-          boxShadow: '0 3px 16px rgba(0, 0, 0, 0.4)',
+          boxShadow: 'var(--shadow-float)',
           color: 'var(--color-text-primary)',
           fontSize: 12,
           fontFamily: 'var(--font-mono)',
@@ -149,8 +149,6 @@ function TraitRow({ trait }: { trait: TraitSnapshot }) {
               whiteSpace: 'nowrap',
               color: 'var(--color-text-primary)',
               fontSize: 11,
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
               lineHeight: 1.2,
             }}
           >
@@ -195,9 +193,6 @@ function TraitGroup({
           width: 'auto',
           color,
           fontSize: 10,
-          fontFamily: 'var(--font-display)',
-          fontWeight: 700,
-          letterSpacing: '0.06em',
         }}
       >
         {label}

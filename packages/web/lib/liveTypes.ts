@@ -154,6 +154,39 @@ export interface VehicleSnapshot {
   dirX?: number;
   dirY?: number;
   current: boolean;
+  speedKmh?: number;
+  gear?: string;
+  engineRunning?: boolean;
+  engineStarted?: boolean;
+  keysInIgnition?: boolean;
+  fuelPercent?: number;
+  battery?: number;
+  headlightsOn?: boolean;
+  engineCondition?: number;
+  worstPartCondition?: number;
+  parts?: Partial<Record<VehiclePartKey, number>>;
+  tires?: Partial<Record<VehicleCorner, VehicleTireSnapshot>>;
+  cabinTemp?: number;
+  heaterActive?: boolean;
+  heaterSetting?: number;
+}
+
+export type VehiclePartKey =
+  | 'engine'
+  | 'hood'
+  | 'gasTank'
+  | 'battery'
+  | 'muffler'
+  | 'windshield'
+  | 'brakes'
+  | 'suspension'
+  | 'doors';
+
+export type VehicleCorner = 'FrontLeft' | 'FrontRight' | 'RearLeft' | 'RearRight';
+
+export interface VehicleTireSnapshot {
+  condition?: number;
+  pressure?: number;
 }
 
 export interface VehiclesSnapshot {

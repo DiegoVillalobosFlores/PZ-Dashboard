@@ -34,7 +34,7 @@ export function ContainerPickerDrawer({
         content: {
           background: 'var(--color-glass-panel)',
           backdropFilter: 'var(--frost-blur)',
-          boxShadow: '-12px 0 32px rgba(0, 0, 0, 0.4)',
+          boxShadow: 'var(--shadow-drawer)',
         },
         body: { padding: 0, height: '100%', position: 'relative' },
       }}
@@ -51,12 +51,9 @@ export function ContainerPickerDrawer({
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 28 }}>
           <span
-            className="pz-label"
+            className="pz-display"
             style={{
               fontSize: 18,
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
-              letterSpacing: '0.1em',
               color: 'var(--color-text-primary)',
             }}
           >

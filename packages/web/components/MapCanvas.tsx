@@ -17,6 +17,7 @@ import {
 } from '../lib/mapTiles';
 import { useGameSubscription } from '../lib/gameSocket';
 import { useMapFocus } from '../lib/mapFocus';
+import { polylineLength, setNavTarget } from '../lib/navTarget';
 import { useModalContext } from './ModalContext';
 import { useAutoZoomOnSpeed, useFogOfWar } from '../lib/settings';
 import { useAssetRevision } from '../lib/assetUrl';
@@ -523,6 +524,7 @@ export function MapCanvas({
     if (!destination || !liveCenter) {
       setRoutePoints(null);
       setRouteIsDirect(false);
+      setNavTarget(null);
       return;
     }
     let cancelled = false;
@@ -531,9 +533,12 @@ export function MapCanvas({
       if (result) {
         setRoutePoints(result.points);
         setRouteIsDirect(false);
+        setNavTarget({ remainingSquares: result.distanceSquares, isDirect: false });
       } else {
-        setRoutePoints([liveCenter, destination]);
+        const direct = [liveCenter, destination];
+        setRoutePoints(direct);
         setRouteIsDirect(true);
+        setNavTarget({ remainingSquares: polylineLength(direct), isDirect: true });
       }
     });
     return () => {

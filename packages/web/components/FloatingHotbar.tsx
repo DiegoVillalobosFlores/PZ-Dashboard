@@ -111,9 +111,6 @@ export function FloatingHotbar({
                   className="pz-label"
                   style={{
                     fontSize: 8,
-                    fontFamily: 'var(--font-display)',
-                    fontWeight: 700,
-                    letterSpacing: '0.08em',
                     color: 'var(--color-text-tertiary)',
                   }}
                 >
@@ -166,9 +163,6 @@ export function FloatingHotbar({
             className="pz-label"
             style={{
               fontSize: compact ? 9 : 10,
-              fontFamily: 'var(--font-display)',
-              fontWeight: 700,
-              letterSpacing: '0.08em',
               color: 'var(--color-text-tertiary)',
             }}
           >
