@@ -131,6 +131,63 @@ rules below target those.
   events under the mod's write load and will strand the whole dashboard on
   a minutes-old snapshot. Don't "simplify" the poll away.
 
+## Reading the game's own files
+
+Balance and mechanics questions ("what does this trait actually do", "how
+much fatigue does coffee remove", "which beds count as good") are answered
+from the game install at `PZ_INSTALL_DIR`
+(`/games/steamapps/common/ProjectZomboid`, set in `apps/server/.env.local`),
+not from this repo. Three separate sources, and the numbers that matter are
+usually in the third:
+
+- `media/scripts/generated/**.txt` — item, trait, profession, recipe and
+  fluid stats. Plain text, greppable. Food stat fields are hundredths of a
+  stat bar (`fatigueChange = -50` is half the bar), and recipe inputs like
+  `item 5 [Base.Coffee2]` are **hunger units**, not item counts — a food's
+  unit pool is its `HungerChange`, so 5 units off a 30-hunger jar is a sixth
+  of it.
+- `media/lua/` — plain Lua source, greppable, and the half of the logic
+  mods can see.
+- `projectzomboid.jar` — compiled but **not obfuscated**. Every trait
+  multiplier, the fatigue/sleep rates, and each recipe's `OnCreate` hook
+  live here as bytecode operands that no grep will ever find.
+
+Decompile rather than reading bytecode by hand: `cfr <path>/Foo.class`
+(wrapper at `~/.local/bin/cfr`, jar in `~/.local/share/java/cfr.jar`, needs
+`jdk-openjdk`), or `cfr --outputdir <dir> projectzomboid.jar --jarfilter
+'zombie.characters.*'` for a whole package. Add `--methodname <name>` to
+print one method. Extract classes first with
+`unzip -q projectzomboid.jar 'zombie/characters/*' -d <dir>` when you only
+need a subtree. **Never read a class as a filtered dump of its constants and
+method names** — that strips the surrounding `fdiv`/`fstore`, which is what
+says whether a constant multiplies or divides a rate, and reading a trait
+backwards that way has already happened once.
+
+Tile-driven properties (`BedType` good/average/bad, `bed`, `container`) are
+in `media/newtiledefinitions.tiles.txt`: `tileset` blocks, one `tile { }`
+block per sprite, sprite names carried in the preceding `// name` comment
+and human labels in `CustomName`. Item and trait display names resolve
+through `media/lua/shared/Translate/EN/*.json` — a trait's script name and
+its UI name often differ (`base:insomniac` is "Restless Sleeper",
+`base:needslesssleep` is "Wakeful").
+
+## Lua tooling
+
+`.luarc.json` at the repository root configures `lua-language-server` for
+`mod/`. It sets the runtime to Lua 5.1 (Kahlua2) and puts the game's own
+`media/lua/{shared,client,server}` on `workspace.library`, so vanilla
+classes — `ISTimedActionQueue`, `ISInventoryPaneContextMenu`, `luautils` —
+resolve to real definitions rather than being flagged undefined. Only
+genuinely Java-exposed globals (`getPlayer`, `CharacterStat`, `PerkFactory`,
+`instanceof`, …) are declared in `diagnostics.globals`; add to that list
+when the mod starts using a new engine global, rather than switching
+`undefined-global` off. Check the mod from the command line with:
+
+    lua-language-server --check "$PWD/mod" --checklevel=Warning --configpath="$PWD/.luarc.json"
+
+The `workspace.library` paths are absolute and match this machine's Proton
+install; a different install location needs them edited.
+
 ## Git
 
 Never create a branch. Commit and push straight to `master`.
